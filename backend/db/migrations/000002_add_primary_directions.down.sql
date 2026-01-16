@@ -1,0 +1,1 @@
+ALTER TABLE decks DROP COLUMN next_primary_direction;

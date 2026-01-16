@@ -1,0 +1,4 @@
+ALTER TABLE users ADD COLUMN is_premium BOOLEAN DEFAULT FALSE;
+
+ALTER TABLE users DROP COLUMN premium_expires_at;
+

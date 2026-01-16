@@ -1,0 +1,1 @@
+ALTER TABLE word_sets DROP COLUMN is_default

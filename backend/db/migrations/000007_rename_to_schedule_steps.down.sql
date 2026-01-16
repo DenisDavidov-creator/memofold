@@ -1,0 +1,1 @@
+ALTER TABLE schedule_steps RENAME TO step_schedules;

@@ -1,0 +1,1 @@
+ALTER TABLE set_to_card_link RENAME COLUMN set_id TO word_set_id;

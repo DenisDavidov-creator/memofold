@@ -1,0 +1,1 @@
+ALTER TABLE card_histories RENAME TO card_history;

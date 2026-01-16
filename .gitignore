@@ -1,0 +1,37 @@
+# --- OS / IDE ---
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# --- SECRETS 
+.env
+.env.*
+backend/.env
+frontend/.env
+
+# --- BACKEND (Go) ---
+# Бинарники
+backend/main
+backend/server
+*.exe
+*.test
+*.out
+
+
+# --- FRONTEND (Node/React) ---
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/coverage/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Vite
+frontend/.vite/
+
+.postges-data/

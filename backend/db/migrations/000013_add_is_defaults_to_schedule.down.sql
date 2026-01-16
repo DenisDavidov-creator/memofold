@@ -1,0 +1,1 @@
+ALTER TABLE deck_schedules DROP COLUMN is_default

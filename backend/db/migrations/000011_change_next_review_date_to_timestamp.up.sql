@@ -1,0 +1,3 @@
+ALTER TABLE decks
+ALTER COLUMN next_review_date TYPE TIMESTAMPTZ
+USING next_review_date::TIMESTAMPTZ;

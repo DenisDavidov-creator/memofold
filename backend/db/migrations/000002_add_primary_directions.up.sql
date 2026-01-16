@@ -1,0 +1,1 @@
+ALTER TABLE decks ADD COLUMN next_primary_direction BOOLEAN NOT NULL DEFAULT TRUE;

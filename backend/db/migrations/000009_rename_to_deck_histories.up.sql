@@ -1,0 +1,1 @@
+ALTER TABLE deck_history RENAME TO deck_histories;
