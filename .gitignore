@@ -34,4 +34,6 @@ yarn-error.log*
 # Vite
 frontend/.vite/
 
-.postges-data/
+# --- DATABASE ---
+postgres-data/
+data/
