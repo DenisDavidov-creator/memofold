@@ -37,3 +37,4 @@ frontend/.vite/
 # --- DATABASE ---
 postgres-data/
 data/
+schema.sql
