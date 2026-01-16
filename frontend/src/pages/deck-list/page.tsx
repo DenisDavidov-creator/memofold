@@ -1,14 +1,23 @@
+import {
+    Alert,
+    Badge,
+    Button, Card,
+    Container,
+    Divider,
+    Group,
+    LoadingOverlay,
+    SimpleGrid,
+    Stack,
+    Tabs,
+    Text,
+    Title
+} from '@mantine/core';
+import { IconArchive, IconClock, IconPlayerPlay, IconPlus, IconPremiumRights, IconRepeat } from '@tabler/icons-react';
+import { jwtDecode } from 'jwt-decode';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Title, Button, Card, Text, Badge, Group, SimpleGrid, 
-  LoadingOverlay, Container, ThemeIcon, Stack, Divider, Tabs, 
-  Alert
-} from '@mantine/core';
-import { IconPlus, IconCards, IconClock, IconRepeat, IconArchive, IconPlayerPlay, IconCalendarTime, IconPremiumRights } from '@tabler/icons-react';
-import type { Deck } from '../../features/decks/types';
 import { getDecks } from '../../features/decks/api';
-import { jwtDecode } from 'jwt-decode';
+import type { Deck } from '../../features/decks/types';
 
 interface UserState {
     login: string;

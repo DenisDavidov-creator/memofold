@@ -1,20 +1,40 @@
-import { useEffect, useState, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { 
-  Container, Title, Button, Group, TextInput, Paper, 
-  Table, Text, LoadingOverlay, Stack, Badge, Box, SimpleGrid, 
-  ActionIcon, Alert, Modal, Select, Anchor 
+import {
+  ActionIcon,
+  Anchor,
+  Badge, Box,
+  Button,
+  Container,
+  Group,
+  LoadingOverlay,
+  Modal,
+  Paper,
+  Select,
+  SimpleGrid,
+  Stack,
+  Table, Text,
+  TextInput,
+  Title
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { 
-  IconVocabulary, IconLanguage, IconBook, IconPlus, IconArrowLeft, 
-  IconTrash, IconEye, IconEyeOff, IconLock, IconSettings, IconRefresh, 
-  IconPencil, IconCalendar 
+import {
+  IconArrowLeft,
+  IconBook,
+  IconCalendar,
+  IconLanguage,
+  IconLock,
+  IconPencil,
+  IconPlus,
+  IconRefresh,
+  IconSettings,
+  IconTrash,
+  IconVocabulary
 } from '@tabler/icons-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Area, AreaChart, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis } from 'recharts';
 
+import { createCard, deleteCard, deleteDeck, getDeckById, resetDeck, updateCard, updateDeck } from '../../features/decks/api';
 import type { Card, DeckDetails } from '../../features/decks/types';
-import { createCard, getDeckById, deleteCard, updateDeck, deleteDeck, resetDeck, updateCard } from '../../features/decks/api';
 import { GetSchedules } from '../../features/schedules/api';
 
 // --- КОМПОНЕНТ ГРАФИКА ---

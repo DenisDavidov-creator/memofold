@@ -1,16 +1,29 @@
+import {
+    Avatar,
+    Badge,
+    Button,
+    Container,
+    Group,
+    LoadingOverlay,
+    Paper,
+    SimpleGrid,
+    Stack,
+    Text,
+    ThemeIcon,
+    Title
+} from '@mantine/core';
+import {
+    IconActivity,
+    IconCards,
+    IconLogout, IconPremiumRights,
+    IconSchool,
+    IconStar,
+    IconVocabulary
+} from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Container, Title, Button, Group, Paper, Text, Avatar, 
-  SimpleGrid, ThemeIcon, RingProgress, Badge, LoadingOverlay, Stack 
-} from '@mantine/core';
-import { 
-  IconLogout, IconPremiumRights, IconCards, IconVocabulary, 
-  IconArchive, IconSchool, IconActivity, IconStar 
-} from '@tabler/icons-react';
-import type { FullProfile } from '../../features/user/types';
 import { getFullProfile } from '../../features/user/api';
-import { logout } from '../../features/auth/api';
+import type { FullProfile } from '../../features/user/types';
 import { apiClient } from '../../shared/api/client';
 
 

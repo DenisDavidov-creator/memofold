@@ -9,16 +9,15 @@ import { REVIEW_STEPS } from '../constants';
 
 const normalize = (str: string) => {
   return str
-    .replace(/\s*\(.*?\)\s*/g, "") // Удаляет скобки и текст внутри (вместе с пробелами вокруг)
+    .replace(/\s*\(.*?\)\s*/g, "") // Удаляет скобки и текст внутри
     .trim()
     .toLowerCase()
-    .replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, ""); // Удаляет остальную пунктуацию
+    .replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, ""); // Удаляет пунктуацию
 };
 
-// Интерфейс статистики (то, что отдаем наружу)
 export interface CardSessionStats {
   cardId: number;
-  isCorrect: boolean; // Финальный вердикт (сдал/не сдал)
+  isCorrect: boolean;
   attempts: number;
   fails: number;
 }
@@ -31,32 +30,33 @@ interface Props {
 
 export const ReviewTable = ({ cards, primaryDirection, onFinish }: Props) => {
   const [activeStepIndex, setActiveStepIndex] = useState(0);
+  
+  // State: [cardId][stepId] -> value
   const [answers, setAnswers] = useState<Record<number, Record<number, string>>>({});
   const [validation, setValidation] = useState<Record<number, Record<number, boolean>>>({});
   
-  // Статистика сессии
-  const [examResults, setExamResults] = useState<Record<number, boolean>>({}); // Зачетка (первый шаг)
+  // Stats
+  const [examResults, setExamResults] = useState<Record<number, boolean>>({});
   const [sessionStats, setSessionStats] = useState<Record<number, { attempts: number, fails: number }>>({});
   
   const [isChecking, setIsChecking] = useState(false);
   const firstInputRef = useRef<HTMLInputElement>(null);
 
-  // --- ЛОГИКА ШАГОВ С УЧЕТОМ НАПРАВЛЕНИЯ ---
+  // --- Step Logic ---
   const baseStep = REVIEW_STEPS[activeStepIndex];
-  
-  // Если direction=true (прямое) -> берем как есть
-  // Если direction=false (обратное) -> меняем source/target местами (только для шагов перевода)
   const currentStep = {
       ...baseStep,
       sourceKey: primaryDirection ? baseStep.sourceKey : baseStep.targetKey,
       targetKey: primaryDirection ? baseStep.targetKey : baseStep.sourceKey,
-      // Placeholder можно тоже менять, если заморочиться
   };
 
   const isLastStep = activeStepIndex === REVIEW_STEPS.length - 1;
   const progress = ((activeStepIndex + (isChecking ? 1 : 0)) / REVIEW_STEPS.length) * 100;
+  
+  // Can finish early only if passed exam (step > 0)
+  const canFinishEarly = activeStepIndex > 0;
 
-  // Автофокус
+  // Auto-focus
   useEffect(() => {
     if (!isChecking && firstInputRef.current) {
       setTimeout(() => firstInputRef.current?.focus(), 100);
@@ -71,7 +71,7 @@ export const ReviewTable = ({ cards, primaryDirection, onFinish }: Props) => {
   };
 
   const handleCheck = () => {
-    const newValidation: Record<number, boolean> = {};
+    const newValidation: Record<number, Record<number, boolean>> = {};
     const newStats = { ...sessionStats };
 
     cards.forEach((card) => {
@@ -79,24 +79,25 @@ export const ReviewTable = ({ cards, primaryDirection, onFinish }: Props) => {
       const correctAnswer = String(card[currentStep.targetKey] || ''); 
       const isCorrect = normalize(userInput) === normalize(correctAnswer);
       
-      newValidation[card.id] = isCorrect; // Для UI (зеленый/красный)
+      if (!newValidation[card.id]) newValidation[card.id] = {};
+      newValidation[card.id][currentStep.id] = isCorrect;
 
-      // --- СБОР СТАТИСТИКИ ---
+      // Stats
       if (!newStats[card.id]) newStats[card.id] = { attempts: 0, fails: 0 };
       newStats[card.id].attempts += 1;
       if (!isCorrect) newStats[card.id].fails += 1;
     });
 
-    setValidation(newValidation); // Заменяем, а не мержим (чтобы сбросить старые шаги)
+    setValidation((prev) => ({ ...prev, ...newValidation }));
     setSessionStats(newStats);
     setIsChecking(true);
     
-    // ЭКЗАМЕН (Шаг 0): Сохраняем результат "Сдал/Не сдал" для SRS
+    // Exam Snapshot (Step 0)
     if (activeStepIndex === 0) {
       const resultsSnapshot: Record<number, boolean> = {};
       cards.forEach(card => {
-          // Если ответил верно с первой попытки (или в рамках экзамена) -> true
-          resultsSnapshot[card.id] = newValidation[card.id] || false;
+          // If correct on first try (step 0) -> true
+          resultsSnapshot[card.id] = newValidation[card.id][currentStep.id] || false;
       });
       setExamResults(resultsSnapshot);
     }
@@ -109,7 +110,6 @@ export const ReviewTable = ({ cards, primaryDirection, onFinish }: Props) => {
         const stats = sessionStats[card.id] || { attempts: 0, fails: 0 };
         return {
             cardId: card.id,
-            // Если экзамен (шаг 0) еще не пройден, считаем Failed
             isCorrect: examResults[card.id] ?? false,
             attempts: stats.attempts,
             fails: stats.fails
@@ -128,20 +128,16 @@ export const ReviewTable = ({ cards, primaryDirection, onFinish }: Props) => {
     }
   };
 
-  // Можно ли завершить досрочно? (Только если прошли Экзамен)
-  const canFinishEarly = activeStepIndex > 0;
-
-  // --- Рендер содержимого ---
+  // --- Render Row (Mobile) ---
   const renderRowContent = (card: ReviewCard, index: number, isMobile: boolean) => {
-    const isCorrect = validation[card.id];
+    const isCorrect = validation[card.id]?.[currentStep.id];
     
-    // Контекст зависит от того, что мы сейчас показываем (Вопрос)
     const contextKey = currentStep.sourceKey === 'originalWord' ? 'originalContext' : 'translationContext';
     const contextText = card[contextKey];
 
     return (
       <>
-        {/* ВЕРХ: Слово + Иконки */}
+        {/* Top: Word + Icons */}
         <Group justify="space-between" mb={isMobile ? 5 : 0} align="center">
           <Group gap="xs">
              <Text fw={600} size={isMobile ? "md" : "lg"} c="dark" style={{ lineHeight: 1.2 }}>
@@ -169,7 +165,7 @@ export const ReviewTable = ({ cards, primaryDirection, onFinish }: Props) => {
           )}
         </Group>
 
-        {/* ЦЕНТР: Инпут */}
+        {/* Center: Input */}
         <TextInput
           ref={index === 0 ? firstInputRef : null}
           placeholder={currentStep.placeholder}
@@ -192,7 +188,7 @@ export const ReviewTable = ({ cards, primaryDirection, onFinish }: Props) => {
           }}
         />
 
-        {/* НИЗ: Ответ (Мобилка) */}
+        {/* Bottom: Answer (Mobile Only) */}
         {isMobile && isChecking && !isCorrect && (
            <Text c="red" size="sm" mt={5} fw={600}>
               {String(card[currentStep.targetKey] || '')}
@@ -205,7 +201,7 @@ export const ReviewTable = ({ cards, primaryDirection, onFinish }: Props) => {
   return (
     <Paper shadow="sm" radius="md" p={{ base: 'sm', sm: 'xl' }} withBorder bg="white">
       
-      {/* Шапка */}
+      {/* Header */}
       <Box mb={{ base: 20, sm: 30 }}>
         <Group justify="space-between" mb={10}>
             <Title order={4} c="dark">{currentStep.label}</Title>
@@ -214,7 +210,7 @@ export const ReviewTable = ({ cards, primaryDirection, onFinish }: Props) => {
         <Progress value={progress} size="sm" radius="xl" color="cyan" />
       </Box>
 
-      {/* --- МОБИЛЬНАЯ ВЕРСИЯ --- */}
+      {/* --- Mobile View --- */}
       <Stack gap="sm" hiddenFrom="sm">
         {cards.map((card, index) => (
            <Card key={card.id} radius="md" p="md" bg="white" withBorder>
@@ -223,25 +219,24 @@ export const ReviewTable = ({ cards, primaryDirection, onFinish }: Props) => {
         ))}
       </Stack>
 
-      {/* --- ДЕСКТОП ВЕРСИЯ --- */}
+      {/* --- Desktop View --- */}
       <ScrollArea visibleFrom="sm">
         <Table verticalSpacing="md" horizontalSpacing="lg">
           <Table.Thead>
             <Table.Tr>
               <Table.Th w="40%" c="dimmed">СЛОВО</Table.Th>
               <Table.Th c="dimmed">ВАШ ОТВЕТ</Table.Th>
-              {/* Пустая колонка для иконок результата, если нужно */}
-              <Table.Th w="50px"></Table.Th>
             </Table.Tr>
           </Table.Thead>
           
           <Table.Tbody>
             {cards.map((card, index) => {
-              const isCorrect = validation[card.id];
+              // Исправлено: доступ по [currentStep.id]
+              const isCorrect = validation[card.id]?.[currentStep.id];
+              
               return (
                 <Table.Tr key={card.id}>
                   <Table.Td>
-                     {/* Слово + Лампочка */}
                      {(() => {
                         const contextKey = currentStep.sourceKey === 'originalWord' ? 'originalContext' : 'translationContext';
                         const contextText = card[contextKey];
@@ -289,7 +284,7 @@ export const ReviewTable = ({ cards, primaryDirection, onFinish }: Props) => {
                           }}
                         />
                         
-                        {/* ПРАВИЛЬНЫЙ ОТВЕТ (СПРАВА) */}
+                        {/* Correct Answer (Desktop) */}
                         {isChecking && !isCorrect && (
                            <Badge 
                               color="red" variant="light" size="lg" radius="sm"
@@ -308,7 +303,7 @@ export const ReviewTable = ({ cards, primaryDirection, onFinish }: Props) => {
       </ScrollArea>
 
       <Group justify="space-between" mt={30}>
-        {/* Кнопка досрочного завершения */}
+        {/* Early Finish Button */}
         {canFinishEarly ? (
             <Button 
                 variant="subtle" color="orange" 
@@ -318,7 +313,7 @@ export const ReviewTable = ({ cards, primaryDirection, onFinish }: Props) => {
                 Завершить
             </Button>
         ) : (
-            <div /> // Пустой блок для выравнивания
+            <div /> 
         )}
 
         <Button 

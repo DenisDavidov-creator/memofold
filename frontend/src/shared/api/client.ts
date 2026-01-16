@@ -26,7 +26,7 @@ export const apiClient = ky.create({
       },
     ],
     afterResponse: [
-      async (request, options, response) => {
+      async (request, _options, response) => {
         if (response.status === 401 && !request.url.includes('auth/refresh') && !request.url.includes('auth/login')) {
           
           if (isRefreshing) {

@@ -1,7 +1,7 @@
-import { useState } from "react"
-import { register } from "../../features/auth/api"
-import { useNavigate } from "react-router-dom"
-import { TextInput, PasswordInput, Button, Paper, Title, Container, Anchor, Text, Group } from '@mantine/core';
+import { Anchor, Button, Container, Paper, PasswordInput, Text, TextInput, Title } from '@mantine/core';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { register } from "../../features/auth/api";
 
 const RegisterPage = () => {
 

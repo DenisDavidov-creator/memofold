@@ -7,7 +7,7 @@ export interface Schedule {
     id: number
     name: string
     levels?: ScheduleLevel[]
-    isDefault: boolaen
+    isDefault: boolean
 }
 
 export interface CreateSchedulePayload {

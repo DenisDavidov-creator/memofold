@@ -1,12 +1,21 @@
+import {
+    Badge,
+    Box,
+    Button,
+    Container,
+    Group,
+    Paper,
+    SimpleGrid,
+    Stack,
+    Text,
+    ThemeIcon,
+    Title
+} from '@mantine/core';
+import {
+    IconBrain, IconCards, IconChartBar, IconChevronRight
+} from '@tabler/icons-react';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Container, Title, Text, Button, Group, SimpleGrid, 
-  ThemeIcon, Stack, Box, Badge, Paper 
-} from '@mantine/core';
-import { 
-  IconBrain, IconCards, IconChartBar, IconChevronRight 
-} from '@tabler/icons-react';
 
 const LandingPage = () => {
   const navigate = useNavigate();

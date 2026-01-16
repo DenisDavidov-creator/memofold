@@ -1,17 +1,33 @@
-import { useEffect, useState, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { 
-  Container, Title, Button, Group, TextInput, Paper, 
-  Table, Text, Stack, SimpleGrid, Select, Badge, Box, ActionIcon 
+import {
+   ActionIcon,
+   Badge, Box,
+   Button,
+   Container,
+   Group,
+   Paper,
+   Select,
+   SimpleGrid,
+   Stack,
+   Table, Text,
+   TextInput,
+   Title
 } from '@mantine/core';
-import { 
-  IconTrash, IconArrowLeft, IconVocabulary, IconLanguage, 
-  IconBook, IconPlus, IconCalendar, IconSettings 
+import {
+   IconArrowLeft,
+   IconBook,
+   IconCalendar,
+   IconLanguage,
+   IconPlus,
+   IconSettings,
+   IconTrash,
+   IconVocabulary
 } from '@tabler/icons-react';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { useDraft } from '../../app/providers/DraftProviders';
-import { GetSchedules } from '../../features/schedules/api';
 import { createDeckWithCards } from '../../features/decks/api';
+import { GetSchedules } from '../../features/schedules/api';
 
 
 const CreateDeckPage = () => {
@@ -229,7 +245,7 @@ const CreateDeckPage = () => {
           )}
       </Group>
 
-      <Paper shadow="xs" radius="md" withBorder overflow="hidden" mb={40}>
+      <Paper shadow="xs" radius="md" withBorder style={{ overflow: 'hidden' }} mb={40}>
          <Table verticalSpacing="sm" highlightOnHover striped>
             <Table.Thead bg="gray.1">
                <Table.Tr>

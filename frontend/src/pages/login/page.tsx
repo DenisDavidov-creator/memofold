@@ -1,5 +1,5 @@
+import { Anchor, Button, Container, Paper, PasswordInput, Text, TextInput, Title } from '@mantine/core';
 import { useState } from 'react';
-import { TextInput, PasswordInput, Button, Paper, Title, Container, Group, Anchor, Text } from '@mantine/core';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../../features/auth/api';
 

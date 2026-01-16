@@ -1,13 +1,21 @@
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
-import { 
-  Container, LoadingOverlay, Button, Alert, Paper, Title, Text, Stack, 
-  Table, Checkbox, Badge, Group, SimpleGrid 
+import {
+    Alert,
+    Badge,
+    Button,
+    Checkbox,
+    Container, LoadingOverlay,
+    Paper,
+    SimpleGrid,
+    Table,
+    Text,
+    Title
 } from '@mantine/core';
-import type { ReviewCard } from '../../features/review/types';
-import { ReviewTable, type CardSessionStats } from '../../features/review/components/review-table';
-import { submitReview } from '../../features/review/api';
+import { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { getDeckById } from '../../features/decks/api';
+import { submitReview } from '../../features/review/api';
+import { ReviewTable, type CardSessionStats } from '../../features/review/components/review-table';
+import type { ReviewCard } from '../../features/review/types';
 import { markCardsAsHard } from '../../features/word-sets/api';
 
 const DeckReviewPage = () => {
@@ -126,7 +134,7 @@ const DeckReviewPage = () => {
                   </Text>
 
                   {/* ТАБЛИЦА */}
-                  <Paper withBorder radius="md" overflow="hidden" mb="xl">
+                  <Paper withBorder radius="md" style={{ overflow: 'hidden' }} mb="xl">
                       <Table highlightOnHover>
                           <Table.Thead bg="gray.0">
                               <Table.Tr>

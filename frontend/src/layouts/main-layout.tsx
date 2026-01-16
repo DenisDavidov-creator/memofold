@@ -1,17 +1,31 @@
-import { useState, useEffect } from 'react';
-import { 
-  AppShell, Group, Burger, Button, Title, Container, 
-  Indicator, ActionIcon, Drawer, Stack, NavLink, Avatar, Menu, Text, Badge 
+import {
+    ActionIcon,
+    AppShell,
+    Avatar,
+    Badge,
+    Burger, Button,
+    Container,
+    Drawer,
+    Group,
+    Indicator,
+    Menu,
+    Stack,
+    Text,
+    Title
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { 
-  IconBasket, IconCards, IconLibrary, IconClock, IconLogout, 
-  IconUser, IconPremiumRights, IconChevronDown, IconStar 
+import {
+    IconBasket, IconCards,
+    IconClock,
+    IconLibrary,
+    IconLogout,
+    IconPremiumRights,
+    IconUser
 } from '@tabler/icons-react';
 import { jwtDecode } from 'jwt-decode';
+import { useEffect, useState } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 
-import { logout } from '../features/auth/api';
 import { useDraft } from '../app/providers/DraftProviders';
 import { getFullProfile } from '../features/user/api';
 import { apiClient } from '../shared/api/client';
