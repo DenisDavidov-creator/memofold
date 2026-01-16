@@ -1,15 +1,41 @@
+version: '3.8'
+
 services:
+  # 1. База данных
   db:
     image: postgres:15-alpine
+    restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 123
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
       POSTGRES_DB: memofold
-    ports:
-      - "5432:5432"
     volumes:
-      - ./postgres-data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
 
+  # 2. Бэкенд (Go)
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      # host=db - это обращение к сервису db по имени
+      DB_URL: "postgres://myuser:mypassword@db:5432/memofold?sslmode=disable"
+      JWT_SECRET: "super_secret_key_change_me"
+      PORT: "8080"
+    depends_on:
+      - db
+
+  # 3. Фронтенд (Nginx + React)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    restart: always
+    ports:
+      - "80:80" # Открываем наружу порт 80
+    depends_on:
+      - backend
 
 volumes:
-  postgres-data:
+  postgres_data:
