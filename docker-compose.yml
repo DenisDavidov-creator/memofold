@@ -5,6 +5,10 @@ services:
   db:
     image: postgres:15-alpine
     restart: always
+    env_file:
+      - .env
+    depends_on:
+      - db
     environment:
       POSTGRES_USER: myuser
       POSTGRES_PASSWORD: mypassword
