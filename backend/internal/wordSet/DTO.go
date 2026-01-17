@@ -6,6 +6,7 @@ import (
 )
 
 type WordSetDTO struct {
+	Id       int    `json:"id"`
 	Name     string `json:"name"`
 	IsPublic bool   `json:"isPublic"`
 }
@@ -22,6 +23,7 @@ type WordSetByIdDTO struct {
 
 func WordSetModelTo(m *models.WordSet) WordSetDTO {
 	return WordSetDTO{
+		Id:       m.Id,
 		Name:     m.Name,
 		IsPublic: m.IsPublic,
 	}

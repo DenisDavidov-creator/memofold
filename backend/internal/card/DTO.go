@@ -40,6 +40,7 @@ func CreateCardToModel(c *CreateCardRequestDTO) models.Card {
 	if c.WordSetId != 0 {
 		newCard.WordSets = []models.WordSet{{Id: c.WordSetId}}
 	}
+
 	return newCard
 }
 

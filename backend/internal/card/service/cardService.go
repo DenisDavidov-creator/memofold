@@ -21,8 +21,8 @@ func NewCardService(cardRepo card.CardRepository, wordSetRepo wordset.WordSetRep
 
 func (s *CardService) CreateCard(input models.Card, userId int) (*models.Card, error) {
 
-	if input.Id == 0 {
-		return nil, errors.New("WordSet and Deck don't be empty")
+	if input.OriginalWord == "" {
+		return nil, errors.New("Original word wasn't be empty")
 	}
 
 	var cards []models.Card

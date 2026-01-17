@@ -21,7 +21,6 @@ func NewCardHandler(service card.CardService) *CardHandler {
 func (h *CardHandler) HDCreateCard(w http.ResponseWriter, r *http.Request) {
 	userId := r.Context().Value(middleware.UserIDKey).(int)
 	var input card.CreateCardRequestDTO
-
 	err := json.NewDecoder(r.Body).Decode(&input)
 	if err != nil {
 		http.Error(w, "Wrong Json format", http.StatusBadRequest)
