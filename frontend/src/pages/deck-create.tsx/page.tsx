@@ -4,6 +4,7 @@ import {
    Button,
    Container,
    Group,
+   Modal,
    Paper,
    Select,
    SimpleGrid,
@@ -20,7 +21,8 @@ import {
    IconPlus,
    IconSettings,
    IconTrash,
-   IconVocabulary
+   IconVocabulary,
+   IconCrown // Added Icon for the Premium button
 } from '@tabler/icons-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -28,7 +30,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useDraft } from '../../app/providers/DraftProviders';
 import { createDeckWithCards } from '../../features/decks/api';
 import { GetSchedules } from '../../features/schedules/api';
-
 
 const CreateDeckPage = () => {
   const navigate = useNavigate();
@@ -39,10 +40,16 @@ const CreateDeckPage = () => {
   const [scheduleId, setScheduleId] = useState<string | null>(null);
   const [schedules, setSchedules] = useState<{ value: string, label: string }[]>([]);
   
-  // Дата старта: берем только YYYY-MM-DD
+  // Дата старта
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Modal State
+  const [errorModalOpened, setErrorModalOpened] = useState(false);
+  const [errorContent, setErrorContent] = useState({ title: '', message: '' });
+  // New state to track if we need to show the Premium button
+  const [showPremiumButton, setShowPremiumButton] = useState(false);
 
   // Форма добавления слов
   const [form, setForm] = useState({
@@ -78,6 +85,13 @@ const CreateDeckPage = () => {
     setTimeout(() => firstInputRef.current?.focus(), 100);
   };
 
+  // Helper to open modal with optional Premium flag
+  const showError = (title: string, message: string, isPremiumNeeded: boolean = false) => {
+      setErrorContent({ title, message });
+      setShowPremiumButton(isPremiumNeeded);
+      setErrorModalOpened(true);
+  };
+
   const handleCreate = async () => {
     if (!deckName || !scheduleId) return;
     setIsSubmitting(true);
@@ -96,7 +110,6 @@ const CreateDeckPage = () => {
          scheduleId: Number(scheduleId),
          existingCardIds: existingIds,
          newCards: newCards,
-         // Превращаем дату обратно в ISO формат д ля бэкенда (начало дня)
          nextReviewDate: new Date(startDate).toISOString() 
       });
 
@@ -107,20 +120,22 @@ const CreateDeckPage = () => {
       
       if (error.response) {
         const body = await error.response.json();
-         const msg = body.error;
+        const msg = body.error;
          
-         console.log('BODY:', body)
+        console.log('BODY:', body);
+
+        // Check for specific limit errors to show Premium button
         if (msg === 'free_limit_words_exceeded') {
-            alert('Лимит слов (7 шт) превышен! Перейдите на Premium.');
+            showError('Лимит превышен', 'Лимит слов (7 шт) превышен! Перейдите на Premium, чтобы создавать большие колоды.', true);
         } else if (msg === 'free_limit_decks_exceeded') {
-            alert('Лимит колод на сегодня исчерпан.');
+            showError('Лимит исчерпан', 'Лимит колод на сегодня исчерпан. Обновите тариф для безлимитного доступа.', true);
         } else {
-            alert(`Ошибка: ${msg}`);
+            showError('Ошибка', `Произошла ошибка: ${msg}`, false);
         }
-            } else {
+      } else {
         console.error(error);
-        alert('Ошибка сети или сервера');
-    }
+        showError('Ошибка сети', 'Не удалось связаться с сервером.', false);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -163,7 +178,7 @@ const CreateDeckPage = () => {
              />
              <TextInput
                 label="Дата старта"
-                type="date" // <--- Только дата
+                type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 leftSection={<IconCalendar size={16}/>}
@@ -173,11 +188,10 @@ const CreateDeckPage = () => {
       </Paper>
 
       {/* 2. ФОРМА ДОБАВЛЕНИЯ */}
-   <Paper shadow="sm" radius="lg" p="xl" withBorder mb={40}>
+      <Paper shadow="sm" radius="lg" p="xl" withBorder mb={40}>
         <Title order={4} mb="md" c="dimmed">Новая карточка</Title>
         
         <Stack gap="md">
-          {/* Ряд 1: Основные слова */}
           <SimpleGrid cols={{ base: 1, sm: 2 }}>
             <TextInput 
               ref={firstInputRef}
@@ -187,7 +201,7 @@ const CreateDeckPage = () => {
               onChange={(e) => handleInputChange('originalWord', e.currentTarget.value)}
               leftSection={<IconVocabulary size={16} />}
               data-autofocus
-              variant="filled" // Делает инпут чуть серым, выделяя его на белом фоне
+              variant="filled" 
             />
             <TextInput 
               label="Перевод" 
@@ -196,12 +210,10 @@ const CreateDeckPage = () => {
               onChange={(e) => handleInputChange('translation', e.currentTarget.value)}
               leftSection={<IconLanguage size={16} />}
               variant="filled"
-              // Обработка Enter для быстрой отправки
               onKeyDown={(e) => { if(e.key === 'Enter' && !form.originalContext) handleAddCard() }}
             />
           </SimpleGrid>
 
-          {/* Ряд 2: Контекст (Опционально) */}
           <SimpleGrid cols={{ base: 1, sm: 2 }}>
             <TextInput 
               label="Контекст (Пример)" 
@@ -281,7 +293,6 @@ const CreateDeckPage = () => {
          </Table>
       </Paper>
 
-      {/* 4. СТАНДАРТНАЯ КНОПКА (Внизу) */}
       <Group justify="flex-end" mt="xl" mb="xl">
           <Button 
               size="md" 
@@ -292,6 +303,35 @@ const CreateDeckPage = () => {
               Создать колоду
           </Button>
       </Group>
+
+      {/* 5. UPDATED MODAL COMPONENT */}
+      <Modal 
+        opened={errorModalOpened} 
+        onClose={() => setErrorModalOpened(false)} 
+        title={errorContent.title} 
+        centered
+      >
+          <Text size="sm" mb="lg">
+              {errorContent.message}
+          </Text>
+          <Group justify="flex-end">
+              <Button variant="default" onClick={() => setErrorModalOpened(false)}>
+                  {showPremiumButton ? 'Отмена' : 'Понятно'}
+              </Button>
+              
+              {/* Conditional Premium Button */}
+              {showPremiumButton && (
+                  <Button 
+                    component={Link} 
+                    to="/payment" 
+                    color="yellow" 
+                    leftSection={<IconCrown size={16} />}
+                  >
+                      Купить Premium
+                  </Button>
+              )}
+          </Group>
+      </Modal>
 
     </Container>
   );

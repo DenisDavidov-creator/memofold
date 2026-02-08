@@ -6,7 +6,7 @@ export interface Deck {
     cardsCount: number
     isArchived: boolean
     nextPrimaryDirection: boolean
-
+    scheduleId: number  // Added this to match backend
 }
 
 export interface Card {
@@ -22,8 +22,10 @@ export interface Card {
 
 export interface DeckDetails extends Deck {
   cards: Card[];
-  deckHistories: { reviewDate: string; accuracy: number }[]
+  deckHistories: { reviewDate: string; accuracy: number }[];
+  schedule?: { id: number; name: string }; // Added optional schedule object if you need to display the strategy name
 }
+
 export interface CreateCardPayload {
     deckId: number;
     originalWord: string;
@@ -57,7 +59,7 @@ export interface CreateDeckWithCardsPayload {
 
 export interface UpdateDeckPayload {
   name?: string;
-  scheduleId?: number;
+  scheduleId?: number; // Needed for the Settings modal
   nextReviewDate?: string
 }
 

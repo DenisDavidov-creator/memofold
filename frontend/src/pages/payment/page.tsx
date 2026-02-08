@@ -4,25 +4,31 @@ import {
   Container, Title, Button, Group, Paper, Text, 
   SimpleGrid, List, ThemeIcon, Modal, Stack, SegmentedControl, Badge, TextInput, LoadingOverlay 
 } from '@mantine/core';
-import { IconCheck, IconCreditCard, IconX, IconCalendar, IconCrown, IconInfinity } from '@tabler/icons-react';
+import { 
+  IconCheck, IconCreditCard, IconX, IconCalendar, 
+  IconCrown, IconInfinity, IconAlertCircle 
+} from '@tabler/icons-react';
 import type { FullProfile } from '../../features/user/types';
 import { getFullProfile } from '../../features/user/api';
 import { apiClient } from '../../shared/api/client';
-
 
 const PaymentPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false); // Загрузка оплаты
   const [pageLoading, setPageLoading] = useState(true); // Загрузка профиля
-  const [modalOpen, setModalOpen] = useState(false);
   
-  // Данные пользователя для проверки текущего плана
+  // Modal States
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
+  const [errorModalOpen, setErrorModalOpen] = useState(false);
+  
+  // Данные пользователя
   const [user, setUser] = useState<FullProfile['user'] | null>(null);
   
   const [billing, setBilling] = useState('month'); 
   const [selectedPlan, setSelectedPlan] = useState<{ id: string, price: string } | null>(null);
 
-  // 1. Загружаем профиль, чтобы узнать текущий статус
+  // 1. Загружаем профиль
   useEffect(() => {
     getFullProfile()
       .then(data => setUser(data.user))
@@ -40,20 +46,28 @@ const PaymentPage = () => {
         // Отправка на бэк
         await apiClient.post('payment/mock', { json: { planId: selectedPlan.id } });
         
-        setModalOpen(false);
-        alert('🎉 Оплата прошла успешно! Спасибо за поддержку.');
-        navigate('/profile');
-        window.location.reload(); 
+        // Close payment modal first
+        setPaymentModalOpen(false);
+        // Open Success Modal
+        setSuccessModalOpen(true);
+
     } catch (e) {
-        alert('Ошибка оплаты');
+        setPaymentModalOpen(false);
+        setErrorModalOpen(true);
     } finally {
         setLoading(false);
     }
   };
 
+  const handleSuccessClose = () => {
+      setSuccessModalOpen(false);
+      navigate('/profile');
+      window.location.reload(); // Reload to update user status from Free to Premium
+  };
+
   const openPaymentModal = (planId: string, price: string) => {
       setSelectedPlan({ id: planId, price });
-      setModalOpen(true);
+      setPaymentModalOpen(true);
   };
 
   const Feature = ({ children }: { children: React.ReactNode }) => (
@@ -65,7 +79,6 @@ const PaymentPage = () => {
 
   if (pageLoading) return <LoadingOverlay visible={true} />;
 
-  // --- ЛОГИКА СТАТУСОВ ---
   const isFree = user?.status === 'free';
   const isPremium = user?.status === 'premium';
   const isLifetime = user?.status === 'lifetime';
@@ -79,7 +92,6 @@ const PaymentPage = () => {
               Учите язык эффективно без лимитов на создание колод и количество слов.
           </Text>
           
-          {/* Переключатель Месяц/Год */}
           <SegmentedControl 
              mt="lg" size="md" value={billing} onChange={setBilling}
              data={[
@@ -91,7 +103,7 @@ const PaymentPage = () => {
 
       <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg" mb={40}>
           
-          {/* 1. БЕСПЛАТНЫЙ ПЛАН */}
+          {/* 1. FREE */}
           <Paper withBorder p="xl" radius="md">
               <Text ta="center" fw={700} mb="xs" c="dimmed">СТАРТ</Text>
               <Text ta="center" size="2rem" fw={700} mb="xl">0 ₽</Text>
@@ -108,8 +120,8 @@ const PaymentPage = () => {
               </Button>
           </Paper>
 
-          {/* 2. PREMIUM (Подписка) */}
-        <Paper 
+          {/* 2. PREMIUM */}
+          <Paper 
             withBorder p="xl" radius="md" shadow="md" 
             style={{ borderColor: '#228be6', borderWidth: 2, position: 'relative' }}
           >
@@ -136,7 +148,6 @@ const PaymentPage = () => {
               
               <Button 
                   fullWidth mt={30} size="md" color="blue"
-                  // Разрешаем нажимать, даже если isPremium (для продления)
                   disabled={isLifetime}
                   onClick={() => openPaymentModal(billing, billing === 'month' ? '199 ₽' : '1490 ₽')}
               >
@@ -144,7 +155,7 @@ const PaymentPage = () => {
               </Button>
           </Paper>
 
-          {/* 3. LIFETIME (Навсегда) */}
+          {/* 3. LIFETIME */}
           <Paper 
             withBorder p="xl" radius="md" 
             bg={isLifetime ? "orange.0" : "gray.0"}
@@ -164,8 +175,6 @@ const PaymentPage = () => {
                   fullWidth mt={30} 
                   variant={isLifetime ? "filled" : "outline"} 
                   color="orange" 
-                  // Отключаем ТОЛЬКО если уже куплен Лайфтайм. 
-                  // Если просто Премиум - кнопку оставляем активной (апгрейд).
                   disabled={isLifetime}
                   onClick={() => openPaymentModal('lifetime', '2990 ₽')}
                   leftSection={isLifetime ? <IconCrown size={18}/> : <IconInfinity size={18}/>}
@@ -181,10 +190,10 @@ const PaymentPage = () => {
           {isLifetime && " Вы — почетный меценат проекта!"}
       </Text>
 
-      {/* МОДАЛКА ОПЛАТЫ */}
+      {/* 1. PAYMENT MODAL */}
       <Modal 
-          opened={modalOpen} 
-          onClose={() => setModalOpen(false)} 
+          opened={paymentModalOpen} 
+          onClose={() => setPaymentModalOpen(false)} 
           title={`Оплата: ${selectedPlan?.price}`} 
           centered
       >
@@ -197,6 +206,48 @@ const PaymentPage = () => {
               <Button onClick={handleBuy} loading={loading} fullWidth mt="md" color="green" size="lg">
                   Оплатить {selectedPlan?.price}
               </Button>
+          </Stack>
+      </Modal>
+
+      {/* 2. SUCCESS MODAL */}
+      <Modal 
+          opened={successModalOpen} 
+          onClose={handleSuccessClose} 
+          title="Успешно!" 
+          centered
+          withCloseButton={false}
+      >
+          <Stack align="center" gap="md">
+             <ThemeIcon size={80} radius="xl" color="green" variant="light">
+                 <IconCheck size={50} />
+             </ThemeIcon>
+             <Title order={3} ta="center">Оплата прошла успешно!</Title>
+             <Text ta="center" c="dimmed">
+                 Спасибо за поддержку. Теперь вам доступны все возможности Premium.
+             </Text>
+             <Button fullWidth onClick={handleSuccessClose} mt="sm">
+                 Отлично!
+             </Button>
+          </Stack>
+      </Modal>
+
+      {/* 3. ERROR MODAL */}
+      <Modal 
+          opened={errorModalOpen} 
+          onClose={() => setErrorModalOpen(false)} 
+          title="Ошибка транзакции" 
+          centered
+      >
+          <Stack align="center">
+             <ThemeIcon size={60} radius="xl" color="red" variant="light">
+                 <IconAlertCircle size={40} />
+             </ThemeIcon>
+             <Text ta="center">
+                 Не удалось провести оплату. Пожалуйста, проверьте данные карты или попробуйте позже.
+             </Text>
+             <Button variant="default" onClick={() => setErrorModalOpen(false)}>
+                 Закрыть
+             </Button>
           </Stack>
       </Modal>
 

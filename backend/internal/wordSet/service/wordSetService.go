@@ -37,7 +37,7 @@ func (s *WordSetService) CreateWordSet(input *wordset.WordSetDTO, userId int) (*
 	return newWordSet, nil
 }
 
-func (s *WordSetService) GetAllWordSet(userId int, typeWS string) ([]wordset.WordSetGetAllResponseDTO, error) {
+func (s *WordSetService) GetAllWordSet(userId int, typeWS string) ([]wordset.WordSetGetResponseDTO, error) {
 
 	filter := wordset.WordSetFilter{
 		UserId: userId,
@@ -46,15 +46,16 @@ func (s *WordSetService) GetAllWordSet(userId int, typeWS string) ([]wordset.Wor
 
 	wordSets, err := s.wordSetRepo.GetAllWordSet(filter)
 
-	var wordSetsResponse []wordset.WordSetGetAllResponseDTO
+	var wordSetsResponse []wordset.WordSetGetResponseDTO
 	for _, value := range wordSets {
-		wordSet := wordset.WordSetGetAllResponseDTO{
+		wordSet := wordset.WordSetGetResponseDTO{
 			Id:         value.Id,
 			Name:       value.Name,
 			IsPublic:   value.IsPublic,
 			CardsCount: value.CardsCount,
 			UserId:     value.UserId,
 			IsDefault:  value.IsDefault,
+			UserName:   value.UserName,
 		}
 		wordSetsResponse = append(wordSetsResponse, wordSet)
 	}
@@ -64,15 +65,28 @@ func (s *WordSetService) GetAllWordSet(userId int, typeWS string) ([]wordset.Wor
 
 	return wordSetsResponse, nil
 }
-func (s *WordSetService) GetWordSetByID(userId, wordSetId int) (*models.WordSet, error) {
+func (s *WordSetService) GetWordSetByID(userId, wordSetId int) (*wordset.WordSetGetResponseByIdDTO, error) {
 
-	wordSet, err := s.wordSetRepo.GetWordSetByID(userId, wordSetId)
+	wordSetG, err := s.wordSetRepo.GetWordSetByID(userId, wordSetId)
+
+	wordSet := wordSetG.WordSet
 
 	if err != nil {
 		return nil, err
 	}
 
-	return wordSet, nil
+	wordSetDTO := wordset.WordSetGetResponseByIdDTO{
+		Id:         wordSetId,
+		Name:       wordSet.Name,
+		IsPublic:   wordSet.IsPublic,
+		CardsCount: len(wordSet.Cards),
+		UserId:     wordSet.UserId,
+		IsDefault:  wordSet.IsDefault,
+		UserName:   wordSetG.UserName,
+		Cards:      wordSet.Cards,
+	}
+
+	return &wordSetDTO, nil
 }
 
 func (s *WordSetService) UpdateWordSet(wordSetId int, name string, isPublic bool) (*wordset.WordSetResponseUpdate, error) {

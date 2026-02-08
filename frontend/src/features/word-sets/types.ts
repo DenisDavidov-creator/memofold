@@ -8,6 +8,7 @@ export interface WordSet {
   cardsCount: number
   userId: number
   isDefault: boolean 
+  userName: string
 }
 
 export interface WordSetDetails extends WordSet {

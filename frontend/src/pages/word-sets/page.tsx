@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Container, Title, Button, Group, TextInput, Modal, 
-  SimpleGrid, Card, Text, Badge, LoadingOverlay, Tabs, ThemeIcon 
+  SimpleGrid, Card, Text, Badge, LoadingOverlay, Tabs, ThemeIcon, CloseButton 
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconFolder, IconPlus, IconWorld, IconUser } from '@tabler/icons-react';
+import { IconFolder, IconPlus, IconWorld, IconUser, IconSearch } from '@tabler/icons-react';
 import type { WordSet } from '../../features/word-sets/types';
 import { createWordSet, getWordSets } from '../../features/word-sets/api';
 
@@ -15,6 +15,7 @@ const WordSetsPage = () => {
   const [sets, setSets] = useState<WordSet[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>('my'); 
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState(''); // State for search query
   
   const [opened, { open, close }] = useDisclosure(false);
   const [newName, setNewName] = useState('');
@@ -44,7 +45,6 @@ const WordSetsPage = () => {
     setIsCreating(true);
     try {
       const newSet = await createWordSet({ name: newName, isPublic: false });
-      // Добавляем новый набор в конец списка (так как он точно не системный)
       setSets((prev) => [...prev, newSet]); 
       setNewName('');
       close();
@@ -54,6 +54,22 @@ const WordSetsPage = () => {
       setIsCreating(false);
     }
   };
+
+  const handleTabChange = (value: string | null) => {
+      setActiveTab(value);
+      setSearch(''); // Clear search when switching tabs
+  };
+
+  // FILTER LOGIC
+  const filteredSets = sets.filter((set: any) => {
+      if (!search) return true;
+      const query = search.toLowerCase();
+      
+      const matchName = set.name.toLowerCase().includes(query);
+      const matchUser = set.userName ? set.userName.toLowerCase().includes(query) : false;
+      
+      return matchName || matchUser;
+  });
 
   if (loading) return <LoadingOverlay visible={true} />;
 
@@ -66,19 +82,32 @@ const WordSetsPage = () => {
         )}
       </Group>
 
-      <Tabs value={activeTab} onChange={setActiveTab} mb="xl">
+      <Tabs value={activeTab} onChange={handleTabChange} mb="md">
         <Tabs.List>
-          <Tabs.Tab value="my" leftSection={<IconUser size={16}/>}>Мои наборы</Tabs.Tab>
+          <Tabs.Tab value="my" leftSection={<IconFolder size={16}/>}>Мои наборы</Tabs.Tab>
           <Tabs.Tab value="public" leftSection={<IconWorld size={16}/>}>Публичные</Tabs.Tab>
         </Tabs.List>
       </Tabs>
 
-      {sets.length === 0 ? (
-        <Text c="dimmed" ta="center" py="xl">Список пуст.</Text>
+      {/* SEARCH INPUT */}
+      <TextInput 
+        placeholder={activeTab === 'public' ? "Поиск по названию или автору..." : "Поиск по названию..."}
+        leftSection={<IconSearch size={16} />}
+        value={search}
+        onChange={(e) => setSearch(e.currentTarget.value)}
+        rightSection={search ? <CloseButton onClick={() => setSearch('')} /> : null}
+        mb="xl"
+      />
+
+      {filteredSets.length === 0 ? (
+        <Text c="dimmed" ta="center" py="xl">
+            {search ? 'Ничего не найдено' : 'Список пуст'}
+        </Text>
       ) : (
         <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }}>
-          {sets.map((set) => {
+          {filteredSets.map((set) => {
              const isSystem = (set as any).isDefault;
+             const userName = (set as any).userName;
 
              return (
                 <Card 
@@ -105,9 +134,20 @@ const WordSetsPage = () => {
                   
                   <Group mt="md" gap="xs">
                      <Badge variant="dot" color="gray">{set.cardsCount || 0} слов</Badge>
-                     {/* Бейджик оставил, чтобы отличать системные, но стиль спокойный */}
+                     
                      {isSystem && <Badge color="orange" variant="light" size="xs">System</Badge>}
-                     {activeTab === 'public' && <Badge variant="outline" color="gray">#{set.userId}</Badge>}
+                     
+                     {/* Show User Name in Public Tab */}
+                     {activeTab === 'public' && userName && (
+                        <Badge 
+                            variant="light" 
+                            color="gray" 
+                            pl={0}
+                            leftSection={<ThemeIcon variant="transparent" size="xs" color="gray"><IconUser size={12} /></ThemeIcon>}
+                        >
+                            {userName}
+                        </Badge>
+                     )}
                   </Group>
                 </Card>
              );

@@ -8,8 +8,8 @@ import (
 
 type WordSetService interface {
 	CreateWordSet(input *WordSetDTO, userId int) (*models.WordSet, error)
-	GetAllWordSet(userId int, typeWS string) ([]WordSetGetAllResponseDTO, error)
-	GetWordSetByID(userId, wordSetId int) (*models.WordSet, error)
+	GetAllWordSet(userId int, typeWS string) ([]WordSetGetResponseDTO, error)
+	GetWordSetByID(userId, wordSetId int) (*WordSetGetResponseByIdDTO, error)
 	UpdateWordSet(wordSetId int, name string, isPublic bool) (*WordSetResponseUpdate, error)
 	DeleteWordSet(userId, wordSetId int) error
 	CopyWordSet(wordSetId, userId int) (*models.WordSet, error)
@@ -18,8 +18,8 @@ type WordSetService interface {
 
 type WordSetRepository interface {
 	CreateWordSet(*models.WordSet) error
-	GetAllWordSet(filter WordSetFilter) ([]WordSetGetAllResult, error)
-	GetWordSetByID(userId, wordSetId int) (*models.WordSet, error)
+	GetAllWordSet(filter WordSetFilter) ([]WordSetGetResult, error)
+	GetWordSetByID(userId, wordSetId int) (*WordSetGetResult, error)
 	UpdateWordSet(wordSetId int, changeWordSet map[string]any) error
 	DeleteWordSet(wordSetId int) error
 	AddConection(wordSet *models.WordSet, cards []models.Card) error
@@ -33,18 +33,31 @@ type WordSetResponseUpdate struct {
 	IsPublic bool   `json:"isPublic"`
 }
 
-type WordSetGetAllResult struct {
+type WordSetGetResult struct {
 	models.WordSet
-	CardsCount int `json:"cardsCount"`
+	CardsCount int
+	UserName   string
 }
 
-type WordSetGetAllResponseDTO struct {
+type WordSetGetResponseByIdDTO struct {
+	Id         int           `json:"id"`
+	Name       string        `json:"name"`
+	IsPublic   bool          `json:"isPublic"`
+	CardsCount int           `json:"cardsCount"`
+	UserId     int           `json:"userId"`
+	IsDefault  bool          `json:"isDefault"`
+	UserName   string        `json:"userName"`
+	Cards      []models.Card `json:"cards"`
+}
+
+type WordSetGetResponseDTO struct {
 	Id         int    `json:"id"`
 	Name       string `json:"name"`
 	IsPublic   bool   `json:"isPublic"`
 	CardsCount int    `json:"cardsCount"`
 	UserId     int    `json:"userId"`
 	IsDefault  bool   `json:"isDefault"`
+	UserName   string `json:"userName"`
 }
 
 type WordSetFilter struct {

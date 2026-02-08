@@ -17,6 +17,7 @@ type WordSetByIdDTO struct {
 	Name      string `json:"name"`
 	IsPublic  bool   `json:"isPublic"`
 	IsDefault bool   `json:"isDefault"`
+	UserName  string `json:"userName"`
 
 	Cards []card.UpdateCardDTO `json:"cards"`
 }
@@ -38,6 +39,24 @@ func WordSetGetModelTo(m *models.WordSet) WordSetByIdDTO {
 		Name:      m.Name,
 		IsPublic:  m.IsPublic,
 		IsDefault: m.IsDefault,
+	}
+
+	cards := card.GetCardsModelTo(m.Cards)
+
+	WS.Cards = cards
+	return WS
+}
+
+func WordSetGetByIdModelTo(m *WordSetGetResponseByIdDTO) WordSetByIdDTO {
+	// cards := make([]card.UpdateCardDTO, 0)
+
+	WS := WordSetByIdDTO{
+		Id:        m.Id,
+		UserId:    m.UserId,
+		Name:      m.Name,
+		IsPublic:  m.IsPublic,
+		IsDefault: m.IsDefault,
+		UserName:  m.UserName,
 	}
 
 	cards := card.GetCardsModelTo(m.Cards)

@@ -8,12 +8,14 @@ import {
   LoadingOverlay,
   Modal,
   Paper,
-  Select,
   SimpleGrid,
   Stack,
   Table, Text,
   TextInput,
-  Title
+  Title,
+  Alert,
+  Select,
+  type MantineColor
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import {
@@ -27,25 +29,57 @@ import {
   IconRefresh,
   IconSettings,
   IconTrash,
-  IconVocabulary
+  IconVocabulary,
+  IconAlertTriangle,
+  IconClock,
+  IconAlertCircle
 } from '@tabler/icons-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Area, AreaChart, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis } from 'recharts';
 
 import { createCard, deleteCard, deleteDeck, getDeckById, resetDeck, updateCard, updateDeck } from '../../features/decks/api';
-import type { Card, DeckDetails } from '../../features/decks/types';
 import { GetSchedules } from '../../features/schedules/api';
+import type { Card, DeckDetails, UpdateDeckPayload } from '../../features/decks/types';
 
-// --- КОМПОНЕНТ ГРАФИКА ---
+// --- HELPERS ---
+
+const getDiffMs = (dateStr?: string) => {
+    if (!dateStr) return 0;
+    return new Date(dateStr).getTime() - new Date().getTime();
+};
+
+const getTimeLabel = (dateStr?: string): { text: string; color: MantineColor; variant: 'light' | 'outline' | 'filled' } => {
+    if (!dateStr) return { text: '', color: 'gray', variant: 'light' };
+
+    const diffMs = getDiffMs(dateStr);
+    
+    if (diffMs <= 0) return { text: 'Готово', color: 'teal', variant: 'light' };
+    
+    const diffMins = Math.ceil(diffMs / (60 * 1000));
+    if (diffMins < 60) return { text: `${diffMins} мин`, color: 'orange', variant: 'light' };
+
+    const diffHours = Math.floor(diffMs / (60 * 60 * 1000));
+    if (diffHours < 24) return { text: `Через ${diffHours} ч`, color: 'blue', variant: 'light' };
+
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays === 1) return { text: 'Завтра', color: 'gray', variant: 'outline' };
+    if (diffDays < 7) return { text: `Через ${diffDays} дн`, color: 'gray', variant: 'outline' };
+
+    return { 
+        text: new Date(dateStr).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }), 
+        color: 'gray',
+        variant: 'outline'
+    };
+};
+
+// --- CHART COMPONENT ---
 const DeckHistoryChart = ({ data }: { data: any[] }) => {
-
-
   if (!data || data.length < 2) return null;
 
-    const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
-      const data = payload[0].payload; // Доступ к полному объекту (с датой)
+      const data = payload[0].payload;
       return (
         <Paper shadow="md" p="xs" radius="md" withBorder bg="rgba(255, 255, 255, 0.95)">
           <Text size="xs" c="dimmed" mb={2}>
@@ -62,23 +96,15 @@ const DeckHistoryChart = ({ data }: { data: any[] }) => {
 
   const chartData = data.map((item, index) => ({
       index: index + 1,
-      date: new Date(item.reviewDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }), // Для тултипа
+      date: new Date(item.reviewDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }),
       accuracy: item.accuracy
   }))
   
   return (
     <Paper withBorder p="md" radius="md" mb="xl">
       <Text size="sm" fw={500} mb="lg" c="dimmed">Динамика успеваемости</Text>
-      
-      {/* 1. Используем Box от Mantine */}
       <Box h={250} w="100%"> 
-        
-        {/* 2. ResponsiveContainer внутри Box */}
-        <ResponsiveContainer
-        width="100%"
-        height="100%"
-        initialDimension={ { width: 320, height: 200 } }
-        >
+        <ResponsiveContainer width="100%" height="100%" initialDimension={ { width: 320, height: 200 } }>
           <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
             <defs>
               <linearGradient id="colorAccuracy" x1="0" y1="0" x2="0" y2="1">
@@ -87,23 +113,11 @@ const DeckHistoryChart = ({ data }: { data: any[] }) => {
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-             <XAxis 
-            dataKey="index" 
-            tick={{fontSize: 11, fill: '#868e96'}} 
-            tickLine={false} 
-            axisLine={false}
-            // interval={0} // Показывать все точки
-        />
-    
-            {/* А дату показываем только в тултипе */}
-            <RechartsTooltip 
-                content={<CustomTooltip />} 
-                cursor={{ stroke: '#dee2e6', strokeWidth: 1 }} 
-            />
+            <XAxis dataKey="index" tick={{fontSize: 11, fill: '#868e96'}} tickLine={false} axisLine={false} />
+            <RechartsTooltip content={<CustomTooltip />} cursor={{ stroke: '#dee2e6', strokeWidth: 1 }} />
             <Area type="monotone" dataKey="accuracy" stroke="#228be6" strokeWidth={2} fillOpacity={1} fill="url(#colorAccuracy)" />
-            </AreaChart>
+          </AreaChart>
         </ResponsiveContainer>
-
       </Box>
     </Paper>
   );
@@ -120,11 +134,18 @@ const DeckDetailsPage = () => {
   // UI States
   const [isRevealed, setIsRevealed] = useState(false);
   const [settingsOpen, { open: openSettings, close: closeSettings }] = useDisclosure(false);
+  const [earlyStartModalOpen, { open: openEarlyModal, close: closeEarlyModal }] = useDisclosure(false);
   
+  const [deleteDeckModalOpened, { open: openDeleteDeckModal, close: closeDeleteDeckModal }] = useDisclosure(false);
+  const [resetModalOpened, { open: openResetModal, close: closeResetModal }] = useDisclosure(false);
+  const [cardToDelete, setCardToDelete] = useState<number | null>(null);
+
   // Settings Form
   const [editName, setEditName] = useState('');
-  const [editScheduleId, setEditScheduleId] = useState<string | null>(null);
   const [editDate, setEditDate] = useState('');
+  
+  // Schedule Strategy State
+  const [editScheduleId, setEditScheduleId] = useState<string | null>(null);
   const [schedules, setSchedules] = useState<{ value: string, label: string }[]>([]);
 
   // Add/Edit Card Forms
@@ -138,25 +159,43 @@ const DeckDetailsPage = () => {
   useEffect(() => {
     if (!id) return;
     
-    getDeckById(id)
-      .then((data) => {
-  
-        const safeDeck = { ...data, cards: data.cards || [], history: data.deckHistories || [] };
-        setDeck(safeDeck);
-        
-        setEditName(data.name);
-        if ((data as any).scheduleId) setEditScheduleId(String((data as any).scheduleId));
-        if (data.nextReviewDate) setEditDate(new Date(data.nextReviewDate).toISOString().slice(0, 16));
+    const fetchData = async () => {
+        try {
+            const [deckData, schedulesData] = await Promise.all([
+                getDeckById(id),
+                GetSchedules()
+            ]);
 
-        // Если новая - показываем слова
-        if ((data.currentLevel || 0) === 0) setIsRevealed(true);
-      })
-      .catch((err) => console.error(err))
-      .finally(() => setLoading(false));
+            // Ensure deckData conforms to DeckDetails (which now includes scheduleId)
+            const safeDeck: DeckDetails = { 
+                ...deckData, 
+                cards: deckData.cards || [], 
+                deckHistories: deckData.deckHistories || [] 
+            };
+            
+            setDeck(safeDeck);
+            
+            // Initialize Form State
+            setEditName(safeDeck.name);
+            setEditScheduleId(String(safeDeck.scheduleId)); // Use the ID from interface
+            
+            if (safeDeck.nextReviewDate) {
+                setEditDate(new Date(safeDeck.nextReviewDate).toISOString().slice(0, 16));
+            }
 
-    GetSchedules().then(data => {
-        setSchedules(data.map(s => ({ value: String(s.id), label: s.name })));
-    });
+            if ((safeDeck.currentLevel || 0) === 0) setIsRevealed(true);
+
+            // Set available schedules options
+            setSchedules(schedulesData.map(s => ({ value: String(s.id), label: s.name })));
+
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    fetchData();
   }, [id]);
 
   const isStarted = (deck?.currentLevel || 0) > 0;
@@ -184,42 +223,88 @@ const DeckDetailsPage = () => {
     } catch (err) { alert('Ошибка'); } finally { setIsAdding(false); }
   };
 
-  const handleDeleteCard = async (cardId: number) => {
-      if (!confirm('Удалить слово?')) return;
+  const confirmDeleteCard = async () => {
+      if (!cardToDelete) return;
       try {
-          await deleteCard({ cardId, deckId: Number(id) });
-          setDeck(prev => prev ? { ...prev, cards: prev.cards.filter(c => c.id !== cardId) } : null);
-      } catch (e) { alert('Ошибка удаления'); }
+          await deleteCard({ cardId: cardToDelete, deckId: Number(id) });
+          setDeck(prev => prev ? { ...prev, cards: prev.cards.filter(c => c.id !== cardToDelete) } : null);
+      } catch (e) { 
+          alert('Ошибка удаления'); 
+      } finally {
+          setCardToDelete(null);
+      }
   };
 
   const handleUpdateDeck = async () => {
-    if (!id) return;
+    if (!id || !editScheduleId) return;
+
     try {
-        const payload: any = { name: editName, scheduleId: Number(editScheduleId) };
-        if (!isStarted && editDate) payload.nextReviewDate = new Date(editDate).toISOString();
+        const payload: UpdateDeckPayload = { 
+            name: editName,
+            scheduleId: Number(editScheduleId) 
+        }; 
+
+        if (!isStarted && editDate) {
+            payload.nextReviewDate = new Date(editDate).toISOString();
+        }
 
         const updated = await updateDeck(Number(id), payload);
-        setDeck(prev => prev ? { ...prev, name: updated.name, nextReviewDate: updated.nextReviewDate } : null);
+        
+        // Update local state based on new response interface
+        setDeck(prev => prev ? { 
+            ...prev, 
+            name: updated.name, 
+            nextReviewDate: updated.nextReviewDate,
+            scheduleId: updated.scheduleId
+        } : null);
+        
         closeSettings();
-    } catch (e) { alert('Ошибка обновления'); }
+    } catch (e) { 
+        console.error(e);
+        alert('Ошибка обновления'); 
+    }
   };
 
-  const handleDeleteDeck = async () => {
-      if (!confirm('Удалить колоду?')) return;
-      try { await deleteDeck(Number(id)); navigate('/decks'); } catch (e) { alert('Ошибка'); }
+  const confirmDeleteDeck = async () => {
+      try { 
+          await deleteDeck(Number(id)); 
+          navigate('/decks'); 
+      } catch (e) { 
+          alert('Ошибка'); 
+      }
   };
 
-  const handleResetProgress = async () => {
-      if (!confirm('Сбросить прогресс?')) return;
-      try { await resetDeck(Number(id)); window.location.reload(); } catch (e) { alert('Ошибка'); }
+  const confirmResetProgress = async () => {
+      try { 
+          await resetDeck(Number(id)); 
+          window.location.reload(); 
+      } catch (e) { 
+          alert('Ошибка'); 
+      }
+  };
+
+  const handleCheckStart = () => {
+    if (!deck?.cards || deck.cards.length === 0) return;
+
+    if (deck.nextReviewDate) {
+        const diffMs = getDiffMs(deck.nextReviewDate);
+        const minsRemaining = Math.ceil(diffMs / 60000);
+        
+        if (minsRemaining > 3) {
+            openEarlyModal();
+            return;
+        }
+    }
+    
+    handleStartReview();
   };
 
   const handleStartReview = () => {
     if (!deck?.cards || deck.cards.length === 0) return;
+    closeEarlyModal();
     navigate(`/decks/${id}/review`, { state: { cards: deck.cards, primaryDirection: deck.nextPrimaryDirection, isArchived: deck.isArchived } });
   };
 
-  // Edit Card Logic
   const handleOpenEdit = (card: Card) => {
     setEditingCard(card);
     setEditForm({
@@ -245,9 +330,11 @@ const DeckDetailsPage = () => {
   if (loading) return <LoadingOverlay visible={true} />;
   if (!deck) return <div>Колода не найдена</div>;
 
+  const timeInfo = getTimeLabel(deck.nextReviewDate);
+  const isReady = getDiffMs(deck.nextReviewDate) <= 0;
+
   return (
     <Container size="md" py="xl">
-      {/* HEADER */}
       <Box mb="md">
         <Button component={Link} to="/decks" variant="subtle" leftSection={<IconArrowLeft size={16}/>} color="gray" size="xs" pl={0}>
             Назад к списку
@@ -257,10 +344,28 @@ const DeckDetailsPage = () => {
       <Group justify="space-between" align="flex-start" mb={30}>
            <div>
               <Title order={2} style={{ lineHeight: 1.2 }}>{deck.name}</Title>
+              
               <Group gap="xs" mt={8}>
-                  <Badge variant="dot" color="gray" size="sm">{deck.cards.length} слов</Badge>
+                  <Badge variant="light" color="gray" radius="xl" tt="uppercase">
+                      {deck.cards.length} слов
+                  </Badge>
+                  
                   {isStarted && (
-                      <Badge variant="outline" color="gray" size="sm">Уровень {deck.currentLevel}</Badge>
+                      <>
+                        <Badge variant="outline" color="orange" radius="xl" tt="uppercase">
+                            LVL {deck.currentLevel}
+                        </Badge>
+                        {deck.nextReviewDate && (
+                            <Badge 
+                                color={timeInfo.color} 
+                                variant={timeInfo.variant} 
+                                radius="xl" 
+                                leftSection={timeInfo.color !== 'teal' ? <IconClock size={12} style={{ marginTop: 4 }}/> : null}
+                            >
+                                {timeInfo.text}
+                            </Badge>
+                        )}
+                      </>
                   )}
               </Group>
            </div>
@@ -271,8 +376,8 @@ const DeckDetailsPage = () => {
                </ActionIcon>
 
                <Button 
-                  visibleFrom="sm" size="sm" radius="md" color="blue" variant="light"
-                  onClick={handleStartReview} disabled={deck.cards.length === 0}
+                  visibleFrom="sm" size="sm" radius="md" color={isReady ? 'blue' : 'orange'} variant={isReady ? 'filled' : 'light'}
+                  onClick={handleCheckStart} disabled={deck.cards.length === 0}
                >
                   Начать тренировку
                </Button>
@@ -280,18 +385,16 @@ const DeckDetailsPage = () => {
       </Group>
 
       <Button 
-          hiddenFrom="sm" fullWidth size="md" radius="md" color="blue" variant="light" mb="xl"
-          onClick={handleStartReview} disabled={deck.cards.length === 0}
+          hiddenFrom="sm" fullWidth size="md" radius="md" color={isReady ? 'blue' : 'orange'} variant={isReady ? 'filled' : 'light'} mb="xl"
+          onClick={handleCheckStart} disabled={deck.cards.length === 0}
        >
           Начать тренировку
        </Button>
 
-      {/* GRAPH (Only if history exists) */}
       {isStarted && deck.deckHistories && deck.deckHistories.length > 0 && (
           <DeckHistoryChart data={deck.deckHistories} />
       )}
 
-      {/* ADD FORM or LOCKED INFO */}
       {isStarted ? (
           <Paper withBorder p="xs" bg="gray.0" mb="xl" radius="md">
               <Group justify="center" gap="xs">
@@ -320,7 +423,6 @@ const DeckDetailsPage = () => {
           </Paper>
       )}
 
-      {/* WORD LIST */}
       <Group justify="space-between" mb="md" align="center">
           <Title order={5} c="dimmed">Словарь</Title>
           {isStarted && (
@@ -364,7 +466,7 @@ const DeckDetailsPage = () => {
                               <ActionIcon variant="subtle" color="blue" size="sm" onClick={() => handleOpenEdit(card)}>
                                   <IconPencil size={16} />
                               </ActionIcon>
-                              <ActionIcon variant="subtle" color="red" size="sm" onClick={() => handleDeleteCard(card.id)}>
+                              <ActionIcon variant="subtle" color="red" size="sm" onClick={() => setCardToDelete(card.id)}>
                                   <IconTrash size={16} />
                               </ActionIcon>
                           </Group>
@@ -380,8 +482,19 @@ const DeckDetailsPage = () => {
       {/* SETTINGS MODAL */}
       <Modal opened={settingsOpen} onClose={closeSettings} title="Настройки колоды" centered>
           <Stack gap="md">
-              <TextInput label="Название" value={editName} onChange={(e) => setEditName(e.target.value)} />
-              <Select label="Стратегия" data={schedules} value={editScheduleId} onChange={setEditScheduleId} allowDeselect={false} />
+              <TextInput 
+                  label="Название" 
+                  value={editName} 
+                  onChange={(e) => setEditName(e.target.value)} 
+              />
+              
+              <Select 
+                  label="Стратегия" 
+                  data={schedules} 
+                  value={editScheduleId} 
+                  onChange={setEditScheduleId} 
+                  allowDeselect={false} 
+              />
               
               {!isStarted && (
                 <TextInput label="Дата старта" type="datetime-local" value={editDate} onChange={(e) => setEditDate(e.target.value)} leftSection={<IconCalendar size={16}/>} />
@@ -393,8 +506,8 @@ const DeckDetailsPage = () => {
               <Paper withBorder p="sm" bg="red.0" mt="sm">
                   <Text size="xs" fw={700} c="red.9" mb="xs" tt="uppercase">Опасная зона</Text>
                   <Group grow>
-                      <Button variant="white" color="orange" size="xs" onClick={handleResetProgress} leftSection={<IconRefresh size={14}/>}>Сбросить прогресс</Button>
-                      <Button variant="white" color="red" size="xs" onClick={handleDeleteDeck} leftSection={<IconTrash size={14}/>}>Удалить колоду</Button>
+                      <Button variant="white" color="orange" size="xs" onClick={openResetModal} leftSection={<IconRefresh size={14}/>}>Сбросить прогресс</Button>
+                      <Button variant="white" color="red" size="xs" onClick={openDeleteDeckModal} leftSection={<IconTrash size={14}/>}>Удалить колоду</Button>
                   </Group>
               </Paper>
 
@@ -405,7 +518,52 @@ const DeckDetailsPage = () => {
           </Stack>
       </Modal>
 
-      {/* EDIT CARD MODAL */}
+      {/* CONFIRMATION MODALS */}
+      <Modal opened={earlyStartModalOpen} onClose={closeEarlyModal} title="Тренировка ещё не готова" centered>
+          <Stack>
+             <Alert icon={<IconAlertTriangle size={16} />} title="Рано!" color="orange">
+                Вам нужно подождать: <b>{timeInfo.text}</b>.
+             </Alert>
+             <Text size="sm">
+                 Интервальное повторение работает лучше всего, если выдерживать паузы. Вы действительно хотите начать раньше?
+             </Text>
+             <Group justify="flex-end" mt="md">
+                 <Button variant="default" onClick={closeEarlyModal}>Ждать</Button>
+                 <Button color="orange" onClick={handleStartReview}>Начать всё равно</Button>
+             </Group>
+          </Stack>
+      </Modal>
+
+      <Modal opened={deleteDeckModalOpened} onClose={closeDeleteDeckModal} title="Удаление колоды" centered>
+          <Stack>
+              <Text size="sm">Вы действительно хотите удалить эту колоду? Это действие нельзя отменить.</Text>
+              <Group justify="flex-end">
+                  <Button variant="default" onClick={closeDeleteDeckModal}>Отмена</Button>
+                  <Button color="red" onClick={confirmDeleteDeck}>Удалить</Button>
+              </Group>
+          </Stack>
+      </Modal>
+
+      <Modal opened={resetModalOpened} onClose={closeResetModal} title="Сброс прогресса" centered>
+           <Stack>
+               <Alert icon={<IconAlertCircle size={16}/>} color="orange" title="Внимание">
+                   Весь прогресс изучения слов будет потерян. Колода вернется к уровню 0.
+               </Alert>
+               <Group justify="flex-end">
+                   <Button variant="default" onClick={closeResetModal}>Отмена</Button>
+                   <Button color="orange" onClick={confirmResetProgress}>Сбросить</Button>
+               </Group>
+           </Stack>
+      </Modal>
+
+      <Modal opened={!!cardToDelete} onClose={() => setCardToDelete(null)} title="Удаление слова" centered>
+           <Text size="sm" mb="lg">Вы уверены, что хотите удалить это слово из колоды?</Text>
+           <Group justify="flex-end">
+               <Button variant="default" onClick={() => setCardToDelete(null)}>Отмена</Button>
+               <Button color="red" onClick={confirmDeleteCard}>Удалить</Button>
+           </Group>
+      </Modal>
+
       <Modal opened={!!editingCard} onClose={() => setEditingCard(null)} title="Редактировать слово" centered>
         <Stack gap="md">
             <TextInput label="Слово" value={editForm.originalWord} onChange={(e) => setEditForm({...editForm, originalWord: e.target.value})} />

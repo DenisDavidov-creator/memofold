@@ -76,7 +76,7 @@ func (h *WordSetHandler) HDGetWordSetById(w http.ResponseWriter, r *http.Request
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(wordset.WordSetGetModelTo(wordSetM))
+	json.NewEncoder(w).Encode(wordset.WordSetGetByIdModelTo(wordSetM))
 }
 
 func (h *WordSetHandler) HDUpdateWordSet(w http.ResponseWriter, r *http.Request) {

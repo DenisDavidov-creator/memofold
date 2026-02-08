@@ -24,12 +24,13 @@ func (r *WordSetRepository) CreateWordSet(wordSet *models.WordSet) error {
 	return nil
 }
 
-func (r *WordSetRepository) GetAllWordSet(filter wordset.WordSetFilter) ([]wordset.WordSetGetAllResult, error) {
-	var results []wordset.WordSetGetAllResult
+func (r *WordSetRepository) GetAllWordSet(filter wordset.WordSetFilter) ([]wordset.WordSetGetResult, error) {
+	var results []wordset.WordSetGetResult
 
 	query := r.db.Model(&models.WordSet{}).
-		Select("word_sets.*, COUNT(set_to_card_link.card_id) as cards_count").
-		Joins("LEFT JOIN set_to_card_link ON set_to_card_link.word_set_id = word_sets.id")
+		Select("word_sets.*, COUNT(set_to_card_link.card_id) as cards_count, users.login as user_name").
+		Joins("LEFT JOIN set_to_card_link ON set_to_card_link.word_set_id = word_sets.id").
+		Joins("LEFT JOIN users ON word_sets.user_id = users.id")
 
 	if filter.Type == "public" {
 		query.Where("word_sets.is_public = ? AND word_sets.user_id != ?", true, filter.UserId)
@@ -37,7 +38,7 @@ func (r *WordSetRepository) GetAllWordSet(filter wordset.WordSetFilter) ([]words
 		query.Where("word_sets.user_id = ?", filter.UserId)
 	}
 	err := query.
-		Group("word_sets.id").
+		Group("word_sets.id, users.id").
 		Scan(&results).Error
 
 	if err != nil {
@@ -47,17 +48,35 @@ func (r *WordSetRepository) GetAllWordSet(filter wordset.WordSetFilter) ([]words
 	return results, nil
 }
 
-func (r *WordSetRepository) GetWordSetByID(userId, wordSetId int) (*models.WordSet, error) {
-	var wordSet models.WordSet
+func (r *WordSetRepository) GetWordSetByID(userId, wordSetId int) (*wordset.WordSetGetResult, error) {
+	// 1. Get the WordSet and User Name
+	var wsResult struct {
+		models.WordSet
+		UserName string `gorm:"column:user_name"`
+	}
 
-	if err := r.db.First(&wordSet, wordSetId).Error; err != nil {
+	err := r.db.Table("word_sets").
+		Select("word_sets.*, users.login as user_name").
+		Joins("LEFT JOIN users ON word_sets.user_id = users.id").
+		Where("word_sets.id = ?", wordSetId).
+		Scan(&wsResult).Error
+
+	if err != nil {
 		return nil, err
 	}
 
+	// 2. Prepare the final result
+	result := &wordset.WordSetGetResult{
+		UserName: wsResult.UserName,
+		WordSet:  wsResult.WordSet,
+	}
+
+	// 3. Fetch Cards directly into the model slice
+	// Since models.Card now has IsLearning `gorm:"<-:false"`,
+	// GORM will map the column "is_learning" automatically.
 	cards := make([]models.Card, 0)
 
-	err := r.db.Table("cards").
-		// Добавил запятую после cards.* и исправил cards.id
+	err = r.db.Table("cards").
 		Select(`
             cards.*, 
             EXISTS (
@@ -69,14 +88,15 @@ func (r *WordSetRepository) GetWordSetByID(userId, wordSetId int) (*models.WordS
         `, userId).
 		Joins("JOIN set_to_card_link link ON link.card_id = cards.id").
 		Where("link.word_set_id = ?", wordSetId).
-		Scan(&cards).Error // Используем Scan, чтобы GORM замапил результаты в структуру
+		Scan(&cards).Error // Direct Scan! No temporary struct needed.
+
 	if err != nil {
 		return nil, err
 	}
 
-	wordSet.Cards = cards
+	result.WordSet.Cards = cards
 
-	return &wordSet, nil
+	return result, nil
 }
 
 func (r *WordSetRepository) UpdateWordSet(wordSetId int, changeWordSet map[string]any) error {

@@ -56,8 +56,6 @@ const LoginPage = () => {
           onKeyDown={handleKeyDown}
         />
         
-        {/* Можно добавить "Забыли пароль?" здесь */}
-        
         <Button fullWidth mt="xl" onClick={handleLogin} loading={loading}>
           Войти
         </Button>

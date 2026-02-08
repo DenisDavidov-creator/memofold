@@ -2,7 +2,7 @@
 
 Веб-приложение для изучения английского языка методом интервальных повторений (SRS) с механикой "Гармошка".
 
-[Live Demo](https://memofold.vercel.app) | [Backend API](https://memofold-api.onrender.com)
+[Prject](http://217.25.93.114/)
 
 ## ✨ Особенности
 *   **Active Recall:** Уникальный интерфейс скрытия колонок для глубокого запоминания.
@@ -18,10 +18,10 @@
 *   **PostgreSQL** (GORM + Raw SQL для сложной аналитики)
 *   **JWT** (Access + Refresh Tokens с ротацией)
 
-**Frontend:**
+**Frontend(wibecodding):**
 *   **React** + **TypeScript** + **Vite**
 *   **Mantine UI** (Адаптивный интерфейс)
-*   **Ky** (HTTP Client с интерцепторами)
+*   **Ky** 
 *   **Recharts** (Графики)
 
 ## 🏗 Архитектура
@@ -31,12 +31,20 @@
 
 ## 🚀 Запуск локально
 
-### Backend
-cd backend
-go mod download
-go run cmd/main.go
+### Creating .env
+```
+cp .env.example .env
+```
 
-### Frontend
-cd frontend
-npm install
-npm run dev
+### docker
+```
+docker compose up -d --build
+```
+
+### migrations
+```
+for f in $(ls backend/db/migrations/*.up.sql | sort); do
+  echo "Применяю миграцию: $f"
+  docker compose exec -T db psql -U myuser -d memofold < "$f"
+done
+```
