@@ -2,7 +2,7 @@
 
 Веб-приложение для изучения английского языка методом интервальных повторений (SRS) с механикой "Гармошка".
 
-[Prject](http://217.25.93.114/)
+[Project](http://217.25.93.114/)
 
 ## ✨ Особенности
 *   **Active Recall:** Уникальный интерфейс скрытия колонок для глубокого запоминания.
@@ -18,7 +18,7 @@
 *   **PostgreSQL** (GORM + Raw SQL для сложной аналитики)
 *   **JWT** (Access + Refresh Tokens с ротацией)
 
-**Frontend(wibecodding):**
+**Frontend(vibe-codding):**
 *   **React** + **TypeScript** + **Vite**
 *   **Mantine UI** (Адаптивный интерфейс)
 *   **Ky** 
@@ -33,7 +33,26 @@
 
 ### Creating .env
 ```
-cp .env.example .env
+nano .env
+```
+### paste 
+```
+# Database Internal Settings (Used by Postgres image)
+POSTGRES_USER=Nya
+POSTGRES_PASSWORD=Nya_password
+POSTGRES_DB=Nya_memofold
+
+# Application Settings (Used by Go code)
+DB_HOST=db
+DB_PORT=5432
+DB_USER=Nya
+DB_PASSWORD=Nya_password
+DB_NAME=Nya_memofold
+JWT_SECRET_KEY=super_puper_secret_key
+HTTP_SERVER=8080
+
+# Migration Setting (Used by the migrate service)
+DB_URL=postgres://myuser:mypassword@db:5432/memofold?sslmode=disable
 ```
 
 ### docker
@@ -41,10 +60,3 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-### migrations
-```
-for f in $(ls backend/db/migrations/*.up.sql | sort); do
-  echo "Применяю миграцию: $f"
-  docker compose exec -T db psql -U myuser -d memofold < "$f"
-done
-```
