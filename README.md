@@ -52,7 +52,7 @@ JWT_SECRET_KEY=super_puper_secret_key
 HTTP_SERVER=8080
 
 # Migration Setting (Used by the migrate service)
-DB_URL=postgres://myuser:mypassword@db:5432/memofold?sslmode=disable
+DB_URL=postgres://Nya:Nya_password@db:5432/Nya_memofold?sslmode=disable
 ```
 
 ### docker
