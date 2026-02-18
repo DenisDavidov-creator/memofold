@@ -3,6 +3,7 @@ package repository
 import (
 	models "dimplom_harmonic/domain"
 	"dimplom_harmonic/internal/card"
+	"log"
 
 	"gorm.io/gorm"
 )
@@ -35,11 +36,11 @@ func (r *CardRepository) CreateHistory(history []models.CardHistory) error {
 
 func (r *CardRepository) GetCardById(cardId int) (*models.Card, error) {
 	var card models.Card
-	err := r.db.Where("id = ?", cardId).First(&card).Error
+	err := r.db.Preload("Decks").Preload("WordSets").Where("id = ?", cardId).First(&card).Error
 	if err != nil {
 		return nil, err
 	}
-
+	log.Println(card)
 	return &card, nil
 }
 

@@ -3,6 +3,7 @@ services:
     image: postgres:17-alpine           # Using latest stable Postgres
     restart: always                     # Always restart if it crashes
     env_file: [.env]                    # Loads variables from .env file
+    command: ["postgres", "-c", "log_min_messages=warning", "-c", "log_statement=none"]
     environment:
       POSTGRES_USER: ${POSTGRES_USER}   # Uses variable from .env
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}

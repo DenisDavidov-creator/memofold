@@ -8,11 +8,23 @@ import type { ReviewCard } from '../types';
 import { REVIEW_STEPS } from '../constants';
 
 const normalize = (str: string) => {
-  return str
-    .replace(/\s*\(.*?\)\s*/g, "")
-    .trim()
+  let clean = str
+    .replace(/\s*\(.*?\)\s*/g, "") // 1. Удаляем текст в скобках
     .toLowerCase()
-    .replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "");
+    .trim();
+
+  // 2. Магия: Заменяем русские буквы, похожие на английские, на английские
+  const homoglyphs: Record<string, string> = {
+      'а': 'a', 'с': 'c', 'е': 'e', 'о': 'o', 'р': 'p', 'х': 'x', 'у': 'y', 
+      'А': 'a', 'С': 'c', 'Е': 'e', 'О': 'o', 'Р': 'p', 'Х': 'x', 'У': 'y'
+  };
+  
+  clean = clean.split('').map(char => homoglyphs[char] || char).join('');
+
+  // 3. Удаляем пунктуацию и лишние пробелы (два пробела превращаем в один)
+  return clean
+    .replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "")
+    .replace(/\s+/g, " "); 
 };
 
 export interface CardSessionStats {
@@ -68,6 +80,8 @@ export const ReviewTable = ({ cards, primaryDirection, onFinish }: Props) => {
     const newValidation: Record<number, Record<number, boolean>> = {};
     const newStats = { ...sessionStats };
 
+
+    
     cards.forEach((card) => {
       const userInput = answers[card.id]?.[currentStep.id] || '';
       const correctAnswer = String(card[currentStep.targetKey] || ''); 
@@ -92,6 +106,8 @@ export const ReviewTable = ({ cards, primaryDirection, onFinish }: Props) => {
       });
       setExamResults(resultsSnapshot);
     }
+
+    
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 

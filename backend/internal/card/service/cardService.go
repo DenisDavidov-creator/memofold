@@ -5,6 +5,7 @@ import (
 	"dimplom_harmonic/internal/card"
 	wordset "dimplom_harmonic/internal/wordSet"
 	"errors"
+	"log"
 
 	"gorm.io/gorm"
 )
@@ -58,6 +59,8 @@ func (s *CardService) DeleteCard(deleteCard card.DeleteCardParam) error {
 	}
 
 	count := len(card.Decks) + len(card.WordSets)
+	log.Println(card)
+
 	if count == 0 {
 		err = s.cardRepo.DeleteCard(card.Id)
 		if err != nil {
