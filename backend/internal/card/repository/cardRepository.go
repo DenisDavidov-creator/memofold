@@ -17,13 +17,15 @@ func NewCardRepository(db *gorm.DB) *CardRepository {
 }
 
 func (r *CardRepository) CreateCard(cards []models.Card, userId int) error {
-	result := r.db.Create(cards)
 
-	if result.Error != nil {
-		return result.Error
-	}
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		result := r.db.Create(&cards)
+		if result.Error != nil {
+			return result.Error
+		}
+		return nil
+	})
 
-	return nil
 }
 
 func (r *CardRepository) CreateHistory(history []models.CardHistory) error {

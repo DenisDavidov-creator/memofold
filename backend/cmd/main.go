@@ -88,25 +88,19 @@ func main() {
 	r := chi.NewRouter()
 
 	r.Use(cors.Handler(cors.Options{
-		// MUST be exact match (no *)
 		AllowedOrigins: []string{"http://localhost:5173"},
 
 		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 
-		// MUST include "Set-Cookie" if you want to see it? (Actually not strictly required for credentials, but good practice)
-		// Authorization is required for Bearer token
-		AllowedHeaders: []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
-		ExposedHeaders: []string{"Link"},
-		// CRITICAL for cookies:
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: true,
 
 		MaxAge: 300,
 	}))
 
 	r.Use(chiMD.Logger)
-	// CORS middleware должен быть подключен до этого
 
-	// ГРУППА /api
 	r.Route("/api", func(r chi.Router) {
 
 		r.Post("/register", UserHandler.HandlerRegisterUser)

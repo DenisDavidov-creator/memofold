@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Container, Title, Button, Group, Paper, Text, 
-  SimpleGrid, List, ThemeIcon, Modal, Stack, SegmentedControl, Badge, TextInput, LoadingOverlay 
+  SimpleGrid, List, ThemeIcon, Modal, Stack, SegmentedControl, Badge, TextInput, LoadingOverlay,
 } from '@mantine/core';
 import { 
   IconCheck, IconCreditCard, IconX, IconCalendar, 
@@ -11,46 +11,41 @@ import {
 import type { FullProfile } from '../../features/user/types';
 import { getFullProfile } from '../../features/user/api';
 import { apiClient } from '../../shared/api/client';
+import { useReviewSession } from '../../app/providers/ReviewProvider';
 
 const PaymentPage = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false); // Загрузка оплаты
-  const [pageLoading, setPageLoading] = useState(true); // Загрузка профиля
+  const { setSessionActive } = useReviewSession();
   
-  // Modal States
+  const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
+  
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [errorModalOpen, setErrorModalOpen] = useState(false);
   
-  // Данные пользователя
   const [user, setUser] = useState<FullProfile['user'] | null>(null);
-  
   const [billing, setBilling] = useState('month'); 
   const [selectedPlan, setSelectedPlan] = useState<{ id: string, price: string } | null>(null);
 
-  // 1. Загружаем профиль
   useEffect(() => {
+    setSessionActive(false);
+    
     getFullProfile()
       .then(data => setUser(data.user))
       .catch(console.error)
       .finally(() => setPageLoading(false));
-  }, []);
+  }, [setSessionActive]);
 
   const handleBuy = async () => {
     if (!selectedPlan) return;
     setLoading(true);
     try {
-        // Эмуляция задержки банка
         await new Promise(r => setTimeout(r, 1500));
-        
-        // Отправка на бэк
         await apiClient.post('payment/mock', { json: { planId: selectedPlan.id } });
         
-        // Close payment modal first
         setPaymentModalOpen(false);
-        // Open Success Modal
         setSuccessModalOpen(true);
-
     } catch (e) {
         setPaymentModalOpen(false);
         setErrorModalOpen(true);
@@ -62,7 +57,7 @@ const PaymentPage = () => {
   const handleSuccessClose = () => {
       setSuccessModalOpen(false);
       navigate('/profile');
-      window.location.reload(); // Reload to update user status from Free to Premium
+      window.location.reload(); 
   };
 
   const openPaymentModal = (planId: string, price: string) => {
@@ -70,11 +65,21 @@ const PaymentPage = () => {
       setPaymentModalOpen(true);
   };
 
-  const Feature = ({ children }: { children: React.ReactNode }) => (
-      <List.Item icon={<ThemeIcon color="teal" size={20} radius="xl"><IconCheck size={12} /></ThemeIcon>}>{children}</List.Item>
+  // Вспомогательные компоненты вынесены внутрь для доступа к области видимости, 
+  // переименованы для избежания конфликта с List.Item
+  const PlanFeature = ({ children }: { children: React.ReactNode }) => (
+      <List.Item icon={<ThemeIcon color="teal" size={20} radius="xl"><IconCheck size={12} /></ThemeIcon>}>
+          {children}
+      </List.Item>
   );
-  const Limit = ({ children }: { children: React.ReactNode }) => (
-      <List.Item icon={<ThemeIcon color="red" size={20} radius="xl" variant="light"><IconX size={12} /></ThemeIcon>} c="dimmed">{children}</List.Item>
+
+  const PlanLimit = ({ children }: { children: React.ReactNode }) => (
+      <List.Item 
+        icon={<ThemeIcon color="red" size={20} radius="xl" variant="light"><IconX size={12} /></ThemeIcon>} 
+        c="dimmed"
+      >
+          {children}
+      </List.Item>
   );
 
   if (pageLoading) return <LoadingOverlay visible={true} />;
@@ -109,10 +114,10 @@ const PaymentPage = () => {
               <Text ta="center" size="2rem" fw={700} mb="xl">0 ₽</Text>
               
               <List spacing="md" size="sm" center>
-                  <Feature>Интервальное повторение</Feature>
-                  <Feature>Доступ к библиотеке</Feature>
-                  <Limit>Максимум 7 слов в колоде</Limit>
-                  <Limit>1 новая колода в день</Limit>
+                  <PlanFeature>Интервальное повторение</PlanFeature>
+                  <PlanFeature>Доступ к библиотеке</PlanFeature>
+                  <PlanLimit>Максимум 7 слов в колоде</PlanLimit>
+                  <PlanLimit>1 новая колода в день</PlanLimit>
               </List>
               
               <Button fullWidth mt={30} variant="default" disabled>
@@ -123,7 +128,12 @@ const PaymentPage = () => {
           {/* 2. PREMIUM */}
           <Paper 
             withBorder p="xl" radius="md" shadow="md" 
-            style={{ borderColor: '#228be6', borderWidth: 2, position: 'relative' }}
+            style={{ 
+                borderColor: 'var(--mantine-color-blue-filled)', 
+                borderWidth: 2, 
+                position: 'relative',
+                backgroundColor: 'var(--mantine-color-body)'
+            }}
           >
               {isPremium && (
                   <Badge color="blue" style={{ position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)' }}>
@@ -140,10 +150,10 @@ const PaymentPage = () => {
               </Text>
               
               <List spacing="md" size="sm" center>
-                  <Feature><b>Безлимитные</b> колоды</Feature>
-                  <Feature><b>Любое</b> количество слов</Feature>
-                  <Feature>Авто-сборка "Сложных"</Feature>
-                  <Feature>Приоритетная поддержка</Feature>
+                  <PlanFeature><b>Безлимитные</b> колоды</PlanFeature>
+                  <PlanFeature><b>Любое</b> количество слов</PlanFeature>
+                  <PlanFeature>Авто-сборка "Сложных"</PlanFeature>
+                  <PlanFeature>Приоритетная поддержка</PlanFeature>
               </List>
               
               <Button 
@@ -158,17 +168,19 @@ const PaymentPage = () => {
           {/* 3. LIFETIME */}
           <Paper 
             withBorder p="xl" radius="md" 
-            bg={isLifetime ? "orange.0" : "gray.0"}
-            style={isLifetime ? { borderColor: 'orange' } : undefined}
+            style={{ 
+                borderColor: isLifetime ? 'var(--mantine-color-orange-filled)' : 'var(--mantine-color-default-border)',
+                backgroundColor: isLifetime ? 'var(--mantine-color-orange-light)' : 'var(--mantine-color-default-hover)'
+            }}
           >
               <Text ta="center" fw={700} mb="xs" c="orange">НАВСЕГДА</Text>
               <Text ta="center" size="2rem" fw={700} mb="xl">2990 ₽</Text>
               
               <List spacing="md" size="sm" center>
-                  <Feature>Все функции Premium</Feature>
-                  <Feature>Один платеж</Feature>
-                  <Feature><b>Вечный</b> доступ</Feature>
-                  <Feature>Статус "Меценат"</Feature>
+                  <PlanFeature>Все функции Premium</PlanFeature>
+                  <PlanFeature>Один платеж</PlanFeature>
+                  <PlanFeature><b>Вечный</b> доступ</PlanFeature>
+                  <PlanFeature>Статус "Меценат"</PlanFeature>
               </List>
               
               <Button 
@@ -190,7 +202,7 @@ const PaymentPage = () => {
           {isLifetime && " Вы — почетный меценат проекта!"}
       </Text>
 
-      {/* 1. PAYMENT MODAL */}
+      {/* ОПЛАТА */}
       <Modal 
           opened={paymentModalOpen} 
           onClose={() => setPaymentModalOpen(false)} 
@@ -198,10 +210,10 @@ const PaymentPage = () => {
           centered
       >
           <Stack>
-              <TextInput label="Номер карты" placeholder="0000 0000 0000 0000" leftSection={<IconCreditCard size={16}/>} />
+              <TextInput label="Номер карты" placeholder="0000 0000 0000 0000" leftSection={<IconCreditCard size={16}/>} variant="filled" />
               <Group grow>
-                  <TextInput label="Срок действия" placeholder="MM/YY" leftSection={<IconCalendar size={16}/>} />
-                  <TextInput label="CVC/CVV" placeholder="123" type="password" maxLength={3} />
+                  <TextInput label="Срок действия" placeholder="MM/YY" leftSection={<IconCalendar size={16}/>} variant="filled" />
+                  <TextInput label="CVC/CVV" placeholder="123" type="password" maxLength={3} variant="filled" />
               </Group>
               <Button onClick={handleBuy} loading={loading} fullWidth mt="md" color="green" size="lg">
                   Оплатить {selectedPlan?.price}
@@ -209,7 +221,7 @@ const PaymentPage = () => {
           </Stack>
       </Modal>
 
-      {/* 2. SUCCESS MODAL */}
+      {/* УСПЕХ */}
       <Modal 
           opened={successModalOpen} 
           onClose={handleSuccessClose} 
@@ -231,7 +243,7 @@ const PaymentPage = () => {
           </Stack>
       </Modal>
 
-      {/* 3. ERROR MODAL */}
+      {/* ОШИБКА */}
       <Modal 
           opened={errorModalOpen} 
           onClose={() => setErrorModalOpen(false)} 

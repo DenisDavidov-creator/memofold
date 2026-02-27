@@ -38,9 +38,11 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Area, AreaChart, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis } from 'recharts';
 
+
 import { createCard, deleteCard, deleteDeck, getDeckById, resetDeck, updateCard, updateDeck } from '../../features/decks/api';
 import { GetSchedules } from '../../features/schedules/api';
 import type { Card, DeckDetails, UpdateDeckPayload } from '../../features/decks/types';
+import { useReviewSession } from '../../app/providers/ReviewProvider';
 
 // --- HELPERS ---
 
@@ -75,13 +77,17 @@ const getTimeLabel = (dateStr?: string): { text: string; color: MantineColor; va
 
 // --- CHART COMPONENT ---
 const DeckHistoryChart = ({ data }: { data: any[] }) => {
+  
   if (!data || data.length < 2) return null;
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <Paper shadow="md" p="xs" radius="md" withBorder bg="rgba(255, 255, 255, 0.95)">
+        <Paper 
+          shadow="md" p="xs" radius="md" withBorder 
+          style={{ backgroundColor: 'var(--mantine-color-body)', borderColor: 'var(--mantine-color-default-border)' }}
+        >
           <Text size="xs" c="dimmed" mb={2}>
               Попытка #{label} ({data.date})
           </Text>
@@ -104,18 +110,30 @@ const DeckHistoryChart = ({ data }: { data: any[] }) => {
     <Paper withBorder p="md" radius="md" mb="xl">
       <Text size="sm" fw={500} mb="lg" c="dimmed">Динамика успеваемости</Text>
       <Box h={250} w="100%"> 
-        <ResponsiveContainer width="100%" height="100%" initialDimension={ { width: 320, height: 200 } }>
+        <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
             <defs>
               <linearGradient id="colorAccuracy" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#228be6" stopOpacity={0.2}/>
-                <stop offset="95%" stopColor="#228be6" stopOpacity={0}/>
+                <stop offset="5%" stopColor="var(--mantine-color-blue-6)" stopOpacity={0.3}/>
+                <stop offset="95%" stopColor="var(--mantine-color-blue-6)" stopOpacity={0}/>
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-            <XAxis dataKey="index" tick={{fontSize: 11, fill: '#868e96'}} tickLine={false} axisLine={false} />
-            <RechartsTooltip content={<CustomTooltip />} cursor={{ stroke: '#dee2e6', strokeWidth: 1 }} />
-            <Area type="monotone" dataKey="accuracy" stroke="#228be6" strokeWidth={2} fillOpacity={1} fill="url(#colorAccuracy)" />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--mantine-color-default-border)" />
+            <XAxis 
+                dataKey="index" 
+                tick={{fontSize: 11, fill: 'var(--mantine-color-dimmed)'}} 
+                tickLine={false} 
+                axisLine={false} 
+            />
+            <RechartsTooltip content={<CustomTooltip />} cursor={{ stroke: 'var(--mantine-color-default-border)', strokeWidth: 1 }} />
+            <Area 
+                type="monotone" 
+                dataKey="accuracy" 
+                stroke="var(--mantine-color-blue-6)" 
+                strokeWidth={2} 
+                fillOpacity={1} 
+                fill="url(#colorAccuracy)" 
+            />
           </AreaChart>
         </ResponsiveContainer>
       </Box>
@@ -126,6 +144,7 @@ const DeckHistoryChart = ({ data }: { data: any[] }) => {
 const DeckDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { setSessionActive } = useReviewSession();
 
   const [deck, setDeck] = useState<DeckDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -144,7 +163,6 @@ const DeckDetailsPage = () => {
   const [editName, setEditName] = useState('');
   const [editDate, setEditDate] = useState('');
   
-  // Schedule Strategy State
   const [editScheduleId, setEditScheduleId] = useState<string | null>(null);
   const [schedules, setSchedules] = useState<{ value: string, label: string }[]>([]);
 
@@ -157,6 +175,8 @@ const DeckDetailsPage = () => {
 
   // LOAD DATA
   useEffect(() => {
+    setSessionActive(false); // Деактивируем флаг сессии при нахождении на этой странице
+
     if (!id) return;
     
     const fetchData = async () => {
@@ -166,7 +186,6 @@ const DeckDetailsPage = () => {
                 GetSchedules()
             ]);
 
-            // Ensure deckData conforms to DeckDetails (which now includes scheduleId)
             const safeDeck: DeckDetails = { 
                 ...deckData, 
                 cards: deckData.cards || [], 
@@ -174,18 +193,14 @@ const DeckDetailsPage = () => {
             };
             
             setDeck(safeDeck);
-            
-            // Initialize Form State
             setEditName(safeDeck.name);
-            setEditScheduleId(String(safeDeck.scheduleId)); // Use the ID from interface
+            setEditScheduleId(String(safeDeck.scheduleId));
             
             if (safeDeck.nextReviewDate) {
                 setEditDate(new Date(safeDeck.nextReviewDate).toISOString().slice(0, 16));
             }
 
             if ((safeDeck.currentLevel || 0) === 0) setIsRevealed(true);
-
-            // Set available schedules options
             setSchedules(schedulesData.map(s => ({ value: String(s.id), label: s.name })));
 
         } catch (err) {
@@ -196,12 +211,11 @@ const DeckDetailsPage = () => {
     };
 
     fetchData();
-  }, [id]);
+  }, [id, setSessionActive]);
 
   const isStarted = (deck?.currentLevel || 0) > 0;
 
   // --- HANDLERS ---
-
   const handleInputChange = (field: string, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }));
   };
@@ -228,74 +242,37 @@ const DeckDetailsPage = () => {
       try {
           await deleteCard({ cardId: cardToDelete, deckId: Number(id) });
           setDeck(prev => prev ? { ...prev, cards: prev.cards.filter(c => c.id !== cardToDelete) } : null);
-      } catch (e) { 
-          alert('Ошибка удаления'); 
-      } finally {
-          setCardToDelete(null);
-      }
+      } catch (e) { alert('Ошибка удаления'); } finally { setCardToDelete(null); }
   };
 
   const handleUpdateDeck = async () => {
     if (!id || !editScheduleId) return;
-
     try {
-        const payload: UpdateDeckPayload = { 
-            name: editName,
-            scheduleId: Number(editScheduleId) 
-        }; 
-
-        if (!isStarted && editDate) {
-            payload.nextReviewDate = new Date(editDate).toISOString();
-        }
-
+        const payload: UpdateDeckPayload = { name: editName, scheduleId: Number(editScheduleId) }; 
+        if (!isStarted && editDate) payload.nextReviewDate = new Date(editDate).toISOString();
         const updated = await updateDeck(Number(id), payload);
-        
-        // Update local state based on new response interface
-        setDeck(prev => prev ? { 
-            ...prev, 
-            name: updated.name, 
-            nextReviewDate: updated.nextReviewDate,
-            scheduleId: updated.scheduleId
-        } : null);
-        
+        setDeck(prev => prev ? { ...prev, name: updated.name, nextReviewDate: updated.nextReviewDate, scheduleId: updated.scheduleId } : null);
         closeSettings();
-    } catch (e) { 
-        console.error(e);
-        alert('Ошибка обновления'); 
-    }
+    } catch (e) { alert('Ошибка обновления'); }
   };
 
   const confirmDeleteDeck = async () => {
-      try { 
-          await deleteDeck(Number(id)); 
-          navigate('/decks'); 
-      } catch (e) { 
-          alert('Ошибка'); 
-      }
+      try { await deleteDeck(Number(id)); navigate('/decks'); } catch (e) { alert('Ошибка'); }
   };
 
   const confirmResetProgress = async () => {
-      try { 
-          await resetDeck(Number(id)); 
-          window.location.reload(); 
-      } catch (e) { 
-          alert('Ошибка'); 
-      }
+      try { await resetDeck(Number(id)); window.location.reload(); } catch (e) { alert('Ошибка'); }
   };
 
   const handleCheckStart = () => {
     if (!deck?.cards || deck.cards.length === 0) return;
-
     if (deck.nextReviewDate) {
         const diffMs = getDiffMs(deck.nextReviewDate);
-        const minsRemaining = Math.ceil(diffMs / 60000);
-        
-        if (minsRemaining > 3) {
+        if (Math.ceil(diffMs / 60000) > 3) {
             openEarlyModal();
             return;
         }
     }
-    
     handleStartReview();
   };
 
@@ -307,22 +284,14 @@ const DeckDetailsPage = () => {
 
   const handleOpenEdit = (card: Card) => {
     setEditingCard(card);
-    setEditForm({
-        originalWord: card.originalWord,
-        translation: card.translation,
-        originalContext: card.originalContext || '',
-        translationContext: card.translationContext || ''
-    });
+    setEditForm({ originalWord: card.originalWord, translation: card.translation, originalContext: card.originalContext || '', translationContext: card.translationContext || '' });
   };
 
   const handleSaveEdit = async () => {
     if (!editingCard) return;
     try {
         const updated = await updateCard({ id: editingCard.id, ...editForm });
-        setDeck(prev => prev ? {
-            ...prev,
-            cards: prev.cards.map(c => c.id === updated.id ? updated : c)
-        } : null);
+        setDeck(prev => prev ? { ...prev, cards: prev.cards.map(c => c.id === updated.id ? updated : c) } : null);
         setEditingCard(null);
     } catch (e) { alert('Ошибка при обновлении'); }
   };
@@ -344,24 +313,15 @@ const DeckDetailsPage = () => {
       <Group justify="space-between" align="flex-start" mb={30}>
            <div>
               <Title order={2} style={{ lineHeight: 1.2 }}>{deck.name}</Title>
-              
               <Group gap="xs" mt={8}>
                   <Badge variant="light" color="gray" radius="xl" tt="uppercase">
                       {deck.cards.length} слов
                   </Badge>
-                  
                   {isStarted && (
                       <>
-                        <Badge variant="outline" color="orange" radius="xl" tt="uppercase">
-                            LVL {deck.currentLevel}
-                        </Badge>
+                        <Badge variant="outline" color="orange" radius="xl" tt="uppercase">LVL {deck.currentLevel}</Badge>
                         {deck.nextReviewDate && (
-                            <Badge 
-                                color={timeInfo.color} 
-                                variant={timeInfo.variant} 
-                                radius="xl" 
-                                leftSection={timeInfo.color !== 'teal' ? <IconClock size={12} style={{ marginTop: 4 }}/> : null}
-                            >
+                            <Badge color={timeInfo.color} variant={timeInfo.variant} radius="xl" leftSection={timeInfo.color !== 'teal' ? <IconClock size={12} style={{ marginTop: 4 }}/> : null}>
                                 {timeInfo.text}
                             </Badge>
                         )}
@@ -369,36 +329,28 @@ const DeckDetailsPage = () => {
                   )}
               </Group>
            </div>
-
            <Group>
                <ActionIcon variant="default" size="lg" radius="md" onClick={openSettings}>
                    <IconSettings size={20} />
                </ActionIcon>
-
-               <Button 
-                  visibleFrom="sm" size="sm" radius="md" color={isReady ? 'blue' : 'orange'} variant={isReady ? 'filled' : 'light'}
-                  onClick={handleCheckStart} disabled={deck.cards.length === 0}
-               >
+               <Button visibleFrom="sm" size="sm" radius="md" color={isReady ? 'blue' : 'orange'} variant={isReady ? 'filled' : 'light'} onClick={handleCheckStart} disabled={deck.cards.length === 0}>
                   Начать тренировку
                </Button>
            </Group>
       </Group>
 
-      <Button 
-          hiddenFrom="sm" fullWidth size="md" radius="md" color={isReady ? 'blue' : 'orange'} variant={isReady ? 'filled' : 'light'} mb="xl"
-          onClick={handleCheckStart} disabled={deck.cards.length === 0}
-       >
+      <Button hiddenFrom="sm" fullWidth size="md" radius="md" color={isReady ? 'blue' : 'orange'} variant={isReady ? 'filled' : 'light'} mb="xl" onClick={handleCheckStart} disabled={deck.cards.length === 0}>
           Начать тренировку
-       </Button>
+      </Button>
 
       {isStarted && deck.deckHistories && deck.deckHistories.length > 0 && (
           <DeckHistoryChart data={deck.deckHistories} />
       )}
 
       {isStarted ? (
-          <Paper withBorder p="xs" bg="gray.0" mb="xl" radius="md">
+          <Paper withBorder p="xs" style={{ backgroundColor: 'var(--mantine-color-default-hover)' }} mb="xl" radius="md">
               <Group justify="center" gap="xs">
-                  <IconLock size={14} color="gray" />
+                  <IconLock size={14} color="var(--mantine-color-dimmed)" />
                   <Text size="xs" c="dimmed">
                       Редактирование заблокировано. <Anchor size="xs" c="dimmed" onClick={openSettings}>Сбросить прогресс</Anchor>, чтобы изменить состав.
                   </Text>
@@ -434,7 +386,7 @@ const DeckDetailsPage = () => {
       
       <Paper shadow="xs" radius="md" withBorder style={{ overflow: 'hidden' }}>
         <Table verticalSpacing="sm" highlightOnHover striped>
-          <Table.Thead bg="gray.1">
+          <Table.Thead style={{ backgroundColor: 'var(--mantine-color-default-hover)' }}>
             <Table.Tr>
               <Table.Th style={{ textAlign: 'center' }}>Оригинал</Table.Th>
               <Table.Th style={{ textAlign: 'center' }}>Перевод</Table.Th>
@@ -459,7 +411,6 @@ const DeckDetailsPage = () => {
                         {card.translationContext && <Text size="xs" c="dimmed">{card.translationContext}</Text>}
                     </div>
                   </Table.Td>
-                  
                   {!isStarted && (
                       <Table.Td>
                           <Group gap={5} justify="center">
@@ -482,35 +433,21 @@ const DeckDetailsPage = () => {
       {/* SETTINGS MODAL */}
       <Modal opened={settingsOpen} onClose={closeSettings} title="Настройки колоды" centered>
           <Stack gap="md">
-              <TextInput 
-                  label="Название" 
-                  value={editName} 
-                  onChange={(e) => setEditName(e.target.value)} 
-              />
-              
-              <Select 
-                  label="Стратегия" 
-                  data={schedules} 
-                  value={editScheduleId} 
-                  onChange={setEditScheduleId} 
-                  allowDeselect={false} 
-              />
-              
+              <TextInput label="Название" value={editName} onChange={(e) => setEditName(e.target.value)} />
+              <Select label="Стратегия" data={schedules} value={editScheduleId} onChange={setEditScheduleId} allowDeselect={false} />
               {!isStarted && (
                 <TextInput label="Дата старта" type="datetime-local" value={editDate} onChange={(e) => setEditDate(e.target.value)} leftSection={<IconCalendar size={16}/>} />
               )}
               {isStarted && (
                 <Text size="xs" c="dimmed">Дата зафиксирована. Сбросьте прогресс, чтобы изменить.</Text>
               )}
-
-              <Paper withBorder p="sm" bg="red.0" mt="sm">
-                  <Text size="xs" fw={700} c="red.9" mb="xs" tt="uppercase">Опасная зона</Text>
+              <Paper withBorder p="sm" style={{ backgroundColor: 'var(--mantine-color-red-light)' }} mt="sm">
+                  <Text size="xs" fw={700} c="red" mb="xs" tt="uppercase">Опасная зона</Text>
                   <Group grow>
-                      <Button variant="white" color="orange" size="xs" onClick={openResetModal} leftSection={<IconRefresh size={14}/>}>Сбросить прогресс</Button>
-                      <Button variant="white" color="red" size="xs" onClick={openDeleteDeckModal} leftSection={<IconTrash size={14}/>}>Удалить колоду</Button>
+                      <Button variant="white" color="orange" size="xs" onClick={openResetModal} leftSection={<IconRefresh size={14}/>}>Сбросить</Button>
+                      <Button variant="white" color="red" size="xs" onClick={openDeleteDeckModal} leftSection={<IconTrash size={14}/>}>Удалить</Button>
                   </Group>
               </Paper>
-
               <Group justify="flex-end" mt="md">
                   <Button variant="default" onClick={closeSettings}>Отмена</Button>
                   <Button onClick={handleUpdateDeck}>Сохранить</Button>
@@ -518,15 +455,13 @@ const DeckDetailsPage = () => {
           </Stack>
       </Modal>
 
-      {/* CONFIRMATION MODALS */}
+      {/* OTHER MODALS (Confirmed working in dark mode via standard Mantine styles) */}
       <Modal opened={earlyStartModalOpen} onClose={closeEarlyModal} title="Тренировка ещё не готова" centered>
           <Stack>
              <Alert icon={<IconAlertTriangle size={16} />} title="Рано!" color="orange">
                 Вам нужно подождать: <b>{timeInfo.text}</b>.
              </Alert>
-             <Text size="sm">
-                 Интервальное повторение работает лучше всего, если выдерживать паузы. Вы действительно хотите начать раньше?
-             </Text>
+             <Text size="sm">Интервальное повторение работает лучше всего, если выдерживать паузы. Начать раньше?</Text>
              <Group justify="flex-end" mt="md">
                  <Button variant="default" onClick={closeEarlyModal}>Ждать</Button>
                  <Button color="orange" onClick={handleStartReview}>Начать всё равно</Button>
@@ -576,7 +511,6 @@ const DeckDetailsPage = () => {
             </Group>
         </Stack>
       </Modal>
-
     </Container>
   );
 };

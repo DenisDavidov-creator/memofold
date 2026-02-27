@@ -11,7 +11,7 @@ import {
    Stack,
    Table, Text,
    TextInput,
-   Title
+   Title,
 } from '@mantine/core';
 import {
    IconArrowLeft,
@@ -22,7 +22,7 @@ import {
    IconSettings,
    IconTrash,
    IconVocabulary,
-   IconCrown // Added Icon for the Premium button
+   IconCrown
 } from '@tabler/icons-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -30,9 +30,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useDraft } from '../../app/providers/DraftProviders';
 import { createDeckWithCards } from '../../features/decks/api';
 import { GetSchedules } from '../../features/schedules/api';
+import { useReviewSession } from '../../app/providers/ReviewProvider';
 
 const CreateDeckPage = () => {
   const navigate = useNavigate();
+  const { setSessionActive } = useReviewSession();
   const { draftCards, removeFromDraft, clearDraft, addToDraft } = useDraft();
   
   // Данные новой колоды
@@ -48,7 +50,6 @@ const CreateDeckPage = () => {
   // Modal State
   const [errorModalOpened, setErrorModalOpened] = useState(false);
   const [errorContent, setErrorContent] = useState({ title: '', message: '' });
-  // New state to track if we need to show the Premium button
   const [showPremiumButton, setShowPremiumButton] = useState(false);
 
   // Форма добавления слов
@@ -60,12 +61,14 @@ const CreateDeckPage = () => {
   });
   const firstInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {  
+  useEffect(() => {
+    setSessionActive(false); // Деактивируем флаг сессии
+    
     GetSchedules().then(data => {
       setSchedules(data.map(s => ({ value: String(s.id), label: s.name })));
       if (data.length > 0) setScheduleId(String(data[0].id));
     });
-  }, []);
+  }, [setSessionActive]);
 
   const handleInputChange = (field: string, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -85,7 +88,6 @@ const CreateDeckPage = () => {
     setTimeout(() => firstInputRef.current?.focus(), 100);
   };
 
-  // Helper to open modal with optional Premium flag
   const showError = (title: string, message: string, isPremiumNeeded: boolean = false) => {
       setErrorContent({ title, message });
       setShowPremiumButton(isPremiumNeeded);
@@ -116,15 +118,9 @@ const CreateDeckPage = () => {
       clearDraft();
       navigate('/decks'); 
     } catch (error: any) {
-      console.log(error.response);
-      
       if (error.response) {
         const body = await error.response.json();
         const msg = body.error;
-         
-        console.log('BODY:', body);
-
-        // Check for specific limit errors to show Premium button
         if (msg === 'free_limit_words_exceeded') {
             showError('Лимит превышен', 'Лимит слов (7 шт) превышен! Перейдите на Premium, чтобы создавать большие колоды.', true);
         } else if (msg === 'free_limit_decks_exceeded') {
@@ -133,7 +129,6 @@ const CreateDeckPage = () => {
             showError('Ошибка', `Произошла ошибка: ${msg}`, false);
         }
       } else {
-        console.error(error);
         showError('Ошибка сети', 'Не удалось связаться с сервером.', false);
       }
     } finally {
@@ -150,7 +145,14 @@ const CreateDeckPage = () => {
       <Title order={2} mb="lg">Новая колода</Title>
 
       {/* 1. НАСТРОЙКИ */}
-      <Paper shadow="sm" radius="md" p="xl" withBorder mb="xl" bg="gray.0">
+      <Paper 
+        shadow="sm" 
+        radius="md" 
+        p="xl" 
+        withBorder 
+        mb="xl" 
+        style={{ backgroundColor: 'var(--mantine-color-default-hover)' }}
+      >
           <Group mb="md">
              <IconSettings size={20} style={{ opacity: 0.5 }} />
              <Text fw={500}>Основные настройки</Text>
@@ -165,7 +167,7 @@ const CreateDeckPage = () => {
                 onChange={(e) => setDeckName(e.target.value)} 
                 data-autofocus
                 variant="filled"
-                bg="white"
+                styles={{ input: { backgroundColor: 'var(--mantine-color-body)' } }}
              />
              <Select 
                 label="Стратегия" 
@@ -175,6 +177,7 @@ const CreateDeckPage = () => {
                 allowDeselect={false}
                 required
                 variant="filled"
+                styles={{ input: { backgroundColor: 'var(--mantine-color-body)' } }}
              />
              <TextInput
                 label="Дата старта"
@@ -183,6 +186,7 @@ const CreateDeckPage = () => {
                 onChange={(e) => setStartDate(e.target.value)}
                 leftSection={<IconCalendar size={16}/>}
                 variant="filled"
+                styles={{ input: { backgroundColor: 'var(--mantine-color-body)' } }}
              />
           </SimpleGrid>
       </Paper>
@@ -200,7 +204,6 @@ const CreateDeckPage = () => {
               value={form.originalWord}
               onChange={(e) => handleInputChange('originalWord', e.currentTarget.value)}
               leftSection={<IconVocabulary size={16} />}
-              data-autofocus
               variant="filled" 
             />
             <TextInput 
@@ -259,7 +262,7 @@ const CreateDeckPage = () => {
 
       <Paper shadow="xs" radius="md" withBorder style={{ overflow: 'hidden' }} mb={40}>
          <Table verticalSpacing="sm" highlightOnHover striped>
-            <Table.Thead bg="gray.1">
+            <Table.Thead style={{ backgroundColor: 'var(--mantine-color-default-hover)' }}>
                <Table.Tr>
                   <Table.Th>Слово</Table.Th>
                   <Table.Th>Перевод</Table.Th>
@@ -304,7 +307,7 @@ const CreateDeckPage = () => {
           </Button>
       </Group>
 
-      {/* 5. UPDATED MODAL COMPONENT */}
+      {/* MODAL */}
       <Modal 
         opened={errorModalOpened} 
         onClose={() => setErrorModalOpened(false)} 
@@ -319,7 +322,6 @@ const CreateDeckPage = () => {
                   {showPremiumButton ? 'Отмена' : 'Понятно'}
               </Button>
               
-              {/* Conditional Premium Button */}
               {showPremiumButton && (
                   <Button 
                     component={Link} 

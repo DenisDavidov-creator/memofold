@@ -123,7 +123,7 @@ func (s *UserServiceImpl) RegisterUser(input models.User) (*models.User, error) 
 
 		defaultSchedule := models.DeckSchedule{
 			UserId:    newUser.Id,
-			Name:      "Standart",
+			Name:      "Standard",
 			IsDefault: true,
 		}
 

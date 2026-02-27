@@ -95,11 +95,14 @@ func (r *DeckRepository) GetDeckStatsForUser(userId int) (*deck.GetUserStatsResu
 
 	query := `
 		SELECT 
-			COUNT(DISTINCT CASE WHEN d.is_archived = false THEN 1 END) as active_decks,
-			COUNT(DISTINCT CASE WHEN d.is_archived = true THEN 1 END) as archived_decks,
-			(SELECT COUNT(*) FROM deck_histories dh JOIN decks d2 ON d2.id = dh.deck_id WHERE d2.user_id = ?) as total_reviews
+			COALESCE(SUM(CASE WHEN is_archived = false THEN 1 ELSE 0 END), 0) as active_decks,
+			COALESCE(SUM(CASE WHEN is_archived = true THEN 1 ELSE 0 END), 0) as archived_decks,
+			(SELECT COUNT(*) 
+			 FROM deck_histories dh 
+			 JOIN decks d2 ON d2.id = dh.deck_id 
+			 WHERE d2.user_id = ?) as total_reviews
 		FROM 
-			decks d 
+			decks
 		WHERE 
 			user_id = ?
 	`

@@ -1,19 +1,26 @@
 import ReactDOM from 'react-dom/client';
-import { MantineProvider, createTheme } from '@mantine/core';
+import { MantineProvider, createTheme, ColorSchemeScript } from '@mantine/core'; // Added ColorSchemeScript
 import App from './App';
 import '@mantine/core/styles.css';
 import { DraftProvider } from './app/providers/DraftProviders';
+import { ReviewProvider } from './app/providers/ReviewProvider';
 
 const theme = createTheme({
   primaryColor: 'cyan',
   fontFamily: 'Verdana, sans-serif',
+  // You can customize dark mode colors here if needed
 });
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  // forceColorScheme="light" принудительно включает светлую тему
-  <MantineProvider theme={theme} defaultColorScheme="light">
-    <DraftProvider>
-      <App />
-    </DraftProvider>
-  </MantineProvider>
+  <>
+    {/* This prevents the white flicker on refresh */}
+    <ColorSchemeScript defaultColorScheme="auto" /> 
+    <MantineProvider theme={theme} defaultColorScheme="auto">
+      <DraftProvider>
+        <ReviewProvider>
+          <App />
+        </ReviewProvider>
+      </DraftProvider>
+    </MantineProvider>
+  </>
 );

@@ -1,28 +1,42 @@
 import {
-    Alert,
-    Badge,
-    Button,
-    Checkbox,
-    Container, LoadingOverlay,
-    Paper,
-    SimpleGrid,
-    Table,
-    Text,
-    Title
+  Alert,
+  Badge,
+  Button,
+  Checkbox,
+  Container,
+  LoadingOverlay,
+  Paper,
+  SimpleGrid,
+  Table,
+  Text,
+  Title,
+  Group,
+  Stack,
+  Modal,
+  ThemeIcon,
 } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
+import { IconAlertTriangle } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { getDeckById } from '../../features/decks/api';
 import { submitReview } from '../../features/review/api';
 import { ReviewTable, type CardSessionStats } from '../../features/review/components/review-table';
 import type { ReviewCard } from '../../features/review/types';
 import { markCardsAsHard } from '../../features/word-sets/api';
+import { useReviewSession } from '../../app/providers/ReviewProvider';
 
 const DeckReviewPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   
+  // Контекст сессии
+  const { setSessionActive } = useReviewSession();
+  
+  // Управление модалкой подтверждения выхода
+  const [exitModalOpened, { open: openExitModal, close: closeExitModal }] = useDisclosure(false);
+
   const [cards, setCards] = useState<ReviewCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -35,7 +49,13 @@ const DeckReviewPage = () => {
 
   const primaryDirection = location.state?.primaryDirection ?? true;
 
-  // 1. ЗАГРУЗКА
+  // Управление статусом сессии в контексте
+  useEffect(() => {
+    setSessionActive(true);
+    return () => setSessionActive(false);
+  }, [setSessionActive]);
+
+  // 1. ЗАГРУЗКА ДАННЫХ
   useEffect(() => { 
     const passedCards = location.state?.cards as ReviewCard[];
     
@@ -43,7 +63,6 @@ const DeckReviewPage = () => {
       setCards(passedCards);
       setLoading(false);
     } else {
-      console.warn('Load by ID...');
       if (id) {
         getDeckById(id)
         .then((deck) => setCards(deck.cards as unknown as ReviewCard[]))
@@ -53,46 +72,54 @@ const DeckReviewPage = () => {
     }
   }, [id, location.state]);
   
-  // 2. ФИНИШ
+  // 2. ЗАВЕРШЕНИЕ СЕССИИ (Логика результатов)
   const handleFinishSession = async (results: CardSessionStats[]) => {
     setIsSubmitting(true);
     setSessionResults(results);
     
-    // АВТО-ВЫБОР "СЛОЖНЫХ":
-    // Выбираем только те, где процент ошибок >= 50%
+    // Авто-выбор сложных (ошибки >= 50%)
     const reallyHardIds = results
         .filter(r => r.attempts > 0 && (r.fails / r.attempts) >= 0.5)
         .map(r => r.cardId);
         
     setSelectedForHard(reallyHardIds);
     
-    // Отправка на сервер (если не тест)
     const isTestMode = location.state?.isArchived;
     
     if (!isTestMode && id) {
       try {
         const apiResults = results.map(r => ({ cardId: r.cardId, isCorrect: r.isCorrect }));
         await submitReview(id, { results: apiResults });
-      } catch (e) { alert('Ошибка сохранения (сеть)'); }
+      } catch (e) {
+        console.error('Ошибка сохранения результатов');
+      }
     }
       
     setIsSubmitting(false);
     setShowResults(true); 
+    setSessionActive(false); // Тренировка фактически закончена, это уже экран итогов
   };
 
-  // 3. ВЫХОД
-  const handleExit = async () => {
+  // 3. ВЫХОД И СОХРАНЕНИЕ "СЛОЖНЫХ"
+  const handleFinalExit = async () => {
       if (selectedForHard.length > 0) {
           setIsSubmitting(true);
           try {
               await markCardsAsHard(selectedForHard);
-          } catch (e) { alert('Не удалось сохранить сложные'); }
+          } catch (e) {
+              console.error('Не удалось сохранить сложные');
+          }
       }
       navigate(`/decks/${id}`);
   };
 
+  const handleConfirmExit = () => {
+      setSessionActive(false);
+      navigate(`/decks/${id}`);
+  };
+
   const toggleSelection = (cardId: number) => {
-      setSelectedForHard(prev => prev.includes(cardId) ? prev.filter(id => id !== cardId) : [...prev, cardId]);
+      setSelectedForHard(prev => prev.includes(cardId) ? prev.filter(i => i !== cardId) : [...prev, cardId]);
   };
 
   const toggleAll = () => {
@@ -102,7 +129,7 @@ const DeckReviewPage = () => {
 
   if (loading) return <LoadingOverlay visible={true} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} />;
     
-  // --- UI: РЕЗУЛЬТАТЫ ---
+  // --- UI: ЭКРАН РЕЗУЛЬТАТОВ ---
   if (showResults) {
       const perfectCount = sessionResults.filter(r => r.fails === 0).length;
       const errorCount = sessionResults.filter(r => r.fails > 0).length;
@@ -112,31 +139,39 @@ const DeckReviewPage = () => {
               <Paper withBorder p="xl" radius="lg" shadow="sm">
                   <Title order={2} mb="xl" ta="center">Тренировка завершена</Title>
                   
-                  {/* КАРТОЧКИ МЕТРИК (Вместо % показываем кол-во) */}
                   <SimpleGrid cols={2} mb={40} spacing="lg">
-                      <Paper withBorder p="md" radius="md" style={{ textAlign: 'center', borderColor: '#40c057' }}>
-                          <Text fz={36} fw={700} c="green" lh={1}>
-                              {perfectCount}
-                          </Text>
+                      <Paper 
+                        withBorder p="md" radius="md" 
+                        style={{ 
+                            textAlign: 'center', 
+                            borderColor: 'var(--mantine-color-green-outline)',
+                            backgroundColor: 'var(--mantine-color-green-light)'
+                        }}
+                      >
+                          <Text fz={36} fw={700} c="green" lh={1}>{perfectCount}</Text>
                           <Text size="xs" c="dimmed" tt="uppercase" fw={700} mt={5}>Идеально</Text>
                       </Paper>
 
-                      <Paper withBorder p="md" radius="md" style={{ textAlign: 'center', borderColor: errorCount > 0 ? '#fa5252' : '#e9ecef' }}>
-                          <Text fz={36} fw={700} c={errorCount > 0 ? "red" : "gray"} lh={1}>
-                              {errorCount}
-                          </Text>
+                      <Paper 
+                        withBorder p="md" radius="md" 
+                        style={{ 
+                            textAlign: 'center', 
+                            borderColor: errorCount > 0 ? 'var(--mantine-color-red-outline)' : 'var(--mantine-color-default-border)',
+                            backgroundColor: errorCount > 0 ? 'var(--mantine-color-red-light)' : 'transparent'
+                        }}
+                      >
+                          <Text fz={36} fw={700} c={errorCount > 0 ? "red" : "dimmed"} lh={1}>{errorCount}</Text>
                           <Text size="xs" c="dimmed" tt="uppercase" fw={700} mt={5}>С ошибками</Text>
                       </Paper>
                   </SimpleGrid>
 
                   <Text c="dimmed" mb="md" ta="center" size="sm">
-                      Отмеченные слова будут добавлены в "Сложные" для повторения.
+                      Отмеченные слова будут добавлены в "Сложные".
                   </Text>
 
-                  {/* ТАБЛИЦА */}
                   <Paper withBorder radius="md" style={{ overflow: 'hidden' }} mb="xl">
                       <Table highlightOnHover>
-                          <Table.Thead bg="gray.0">
+                          <Table.Thead style={{ backgroundColor: 'var(--mantine-color-default-hover)' }}>
                               <Table.Tr>
                                   <Table.Th w={40}>
                                       <Checkbox 
@@ -161,8 +196,10 @@ const DeckReviewPage = () => {
                                   return (
                                       <Table.Tr 
                                         key={res.cardId} 
-                                        bg={isError ? 'red.0' : undefined}
-                                        style={{ cursor: 'pointer' }}
+                                        style={{ 
+                                            cursor: 'pointer',
+                                            backgroundColor: isError ? 'var(--mantine-color-red-light-hover)' : undefined 
+                                        }}
                                         onClick={() => toggleSelection(res.cardId)}
                                       >
                                           <Table.Td onClick={(e) => e.stopPropagation()}>
@@ -191,10 +228,8 @@ const DeckReviewPage = () => {
                   </Paper>
 
                   <Button 
-                      size="lg" 
-                      radius="xl" 
-                      fullWidth 
-                      onClick={handleExit}
+                      size="lg" radius="xl" fullWidth 
+                      onClick={handleFinalExit}
                       loading={isSubmitting}
                       color={selectedForHard.length > 0 ? "orange" : "blue"}
                   >
@@ -210,11 +245,41 @@ const DeckReviewPage = () => {
   // --- UI: ТРЕНИРОВКА ---
   return (
     <Container size="md" px={{ base: 0, sm: 'md' }} py={{ base: 'xs', sm: 'xl' }}>
-      <Link to={`/decks/${id}`} style={{ textDecoration: 'none' }}>
-         <Button variant="subtle" size="xs" mb="md" color="gray" ml={{ base: 'md', sm: 0 }}>
-            ← Выйти
-         </Button>
-      </Link>
+      
+      {/* Модалка подтверждения выхода */}
+      <Modal 
+        opened={exitModalOpened} 
+        onClose={closeExitModal} 
+        title="Прервать тренировку?" 
+        centered
+        radius="md"
+      >
+        <Stack>
+          <Group wrap="nowrap" align="flex-start">
+            <ThemeIcon color="orange" variant="light" size="lg">
+              <IconAlertTriangle size={20} />
+            </ThemeIcon>
+            <Text size="sm">
+              Ваш прогресс в текущей сессии будет потерян. Вы уверены, что хотите выйти?
+            </Text>
+          </Group>
+          <Group justify="flex-end" mt="md">
+            <Button variant="default" onClick={closeExitModal}>Отмена</Button>
+            <Button color="red" onClick={handleConfirmExit}>Выйти</Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Button 
+        variant="subtle" 
+        size="xs" 
+        mb="md" 
+        color="gray" 
+        ml={{ base: 'md', sm: 0 }}
+        onClick={openExitModal}
+      >
+        ← Выйти
+      </Button>
 
       {error ? (
         <Alert variant="light" color="red" title="Ошибка" m="md">{error}</Alert>
@@ -229,7 +294,7 @@ const DeckReviewPage = () => {
              <Alert variant="light" color="blue" title="Пусто" m="md">В этой колоде нет слов.</Alert>
         )
       )}
-      <LoadingOverlay visible={isSubmitting} />
+      <LoadingOverlay visible={isSubmitting} overlayProps={{ blur: 2 }} />
     </Container>
   );
 };

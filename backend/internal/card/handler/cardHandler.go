@@ -4,6 +4,7 @@ import (
 	"dimplom_harmonic/internal/card"
 	"dimplom_harmonic/internal/middleware"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -26,6 +27,7 @@ func (h *CardHandler) HDCreateCard(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Wrong Json format", http.StatusBadRequest)
 	}
 
+	log.Println(input)
 	createCard, err := h.service.CreateCard(card.CreateCardToModel(&input), userId)
 
 	if err != nil {

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { 
   Table, TextInput, Button, Paper, Group, Text, Badge, Progress, Title, 
-  Popover, ActionIcon, ScrollArea, Stack, Card, Box, Modal 
+  Popover, ActionIcon, ScrollArea, Stack, Card, Box, Modal,
 } from '@mantine/core';
 import { IconBulb, IconCheck, IconX, IconFlag, IconAlertTriangle } from '@tabler/icons-react';
 import type { ReviewCard } from '../types'; 
@@ -9,11 +9,10 @@ import { REVIEW_STEPS } from '../constants';
 
 const normalize = (str: string) => {
   let clean = str
-    .replace(/\s*\(.*?\)\s*/g, "") // 1. Удаляем текст в скобках
+    .replace(/\s*\(.*?\)\s*/g, "")
     .toLowerCase()
     .trim();
 
-  // 2. Магия: Заменяем русские буквы, похожие на английские, на английские
   const homoglyphs: Record<string, string> = {
       'а': 'a', 'с': 'c', 'е': 'e', 'о': 'o', 'р': 'p', 'х': 'x', 'у': 'y', 
       'А': 'a', 'С': 'c', 'Е': 'e', 'О': 'o', 'Р': 'p', 'Х': 'x', 'У': 'y'
@@ -21,7 +20,6 @@ const normalize = (str: string) => {
   
   clean = clean.split('').map(char => homoglyphs[char] || char).join('');
 
-  // 3. Удаляем пунктуацию и лишние пробелы (два пробела превращаем в один)
   return clean
     .replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "")
     .replace(/\s+/g, " "); 
@@ -41,6 +39,7 @@ interface Props {
 }
 
 export const ReviewTable = ({ cards, primaryDirection, onFinish }: Props) => {
+
   const [activeStepIndex, setActiveStepIndex] = useState(0);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   
@@ -80,8 +79,6 @@ export const ReviewTable = ({ cards, primaryDirection, onFinish }: Props) => {
     const newValidation: Record<number, Record<number, boolean>> = {};
     const newStats = { ...sessionStats };
 
-
-    
     cards.forEach((card) => {
       const userInput = answers[card.id]?.[currentStep.id] || '';
       const correctAnswer = String(card[currentStep.targetKey] || ''); 
@@ -107,7 +104,6 @@ export const ReviewTable = ({ cards, primaryDirection, onFinish }: Props) => {
       setExamResults(resultsSnapshot);
     }
 
-    
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -134,8 +130,21 @@ export const ReviewTable = ({ cards, primaryDirection, onFinish }: Props) => {
     }
   };
 
+  // Helper для стилизации инпутов (поддержка Dark Mode)
+  const getInputStyles = (isCorrect: boolean | undefined) => {
+    if (!isChecking) return {};
+    return {
+      input: {
+        backgroundColor: isCorrect ? 'var(--mantine-color-teal-light)' : 'var(--mantine-color-red-light)',
+        color: isCorrect ? 'var(--mantine-color-teal-filled)' : 'var(--mantine-color-red-filled)',
+        borderColor: isCorrect ? 'var(--mantine-color-teal-outline)' : 'var(--mantine-color-red-outline)',
+        fontWeight: 600,
+      }
+    };
+  };
+
   return (
-    <Paper shadow="sm" radius="md" p={{ base: 'sm', sm: 'xl' }} withBorder bg="white">
+    <Paper shadow="sm" radius="md" p={{ base: 'sm', sm: 'xl' }} withBorder>
       
       <Modal 
         opened={isConfirmOpen} 
@@ -145,7 +154,7 @@ export const ReviewTable = ({ cards, primaryDirection, onFinish }: Props) => {
       >
         <Stack gap="md">
           <Group wrap="nowrap">
-            <IconAlertTriangle size={30} color="orange" />
+            <IconAlertTriangle size={30} color="var(--mantine-color-orange-filled)" />
             <Text size="sm">Вы уверены? Текущий прогресс будет сохранен в историю.</Text>
           </Group>
           <Group justify="flex-end">
@@ -157,10 +166,10 @@ export const ReviewTable = ({ cards, primaryDirection, onFinish }: Props) => {
 
       <Box mb={30}>
         <Group justify="space-between" mb={10}>
-            <Title order={4} c="dark">{currentStep.label}</Title>
+            <Title order={4}>{currentStep.label}</Title>
             <Badge variant="light" color="gray" size="lg">{activeStepIndex + 1} / {REVIEW_STEPS.length}</Badge>
         </Group>
-        <Progress value={progress} size="sm" radius="xl" color="cyan" />
+        <Progress value={progress} size="sm" radius="xl" color="cyan" animated={!isChecking} />
       </Box>
 
       {/* --- Mobile View --- */}
@@ -180,11 +189,13 @@ export const ReviewTable = ({ cards, primaryDirection, onFinish }: Props) => {
                                 <Popover.Target>
                                     <ActionIcon variant="transparent" color="yellow" size="sm"><IconBulb size={18} /></ActionIcon>
                                 </Popover.Target>
-                                <Popover.Dropdown bg="yellow.0"><Text size="xs">{contextText}</Text></Popover.Dropdown>
+                                <Popover.Dropdown style={{ backgroundColor: 'var(--mantine-color-yellow-light)' }}>
+                                  <Text size="xs" c="var(--mantine-color-yellow-filled-hover)">{contextText}</Text>
+                                </Popover.Dropdown>
                             </Popover>
                         )}
                     </Group>
-                    {isChecking && (isCorrect ? <IconCheck color="teal" /> : <IconX color="red" />)}
+                    {isChecking && (isCorrect ? <IconCheck color="var(--mantine-color-teal-filled)" /> : <IconX color="var(--mantine-color-red-filled)" />)}
                 </Group>
                 
                 <TextInput
@@ -194,9 +205,7 @@ export const ReviewTable = ({ cards, primaryDirection, onFinish }: Props) => {
                     onChange={(e) => handleInputChange(card.id, e.currentTarget.value)}
                     disabled={isChecking}
                     variant="filled"
-                    styles={{ input: { 
-                        backgroundColor: isChecking ? (isCorrect ? '#e6fffa' : '#fff5f5') : '#f8f9fa' 
-                    }}}
+                    styles={getInputStyles(isCorrect)}
                 />
 
                 {isChecking && !isCorrect && (
@@ -233,7 +242,9 @@ export const ReviewTable = ({ cards, primaryDirection, onFinish }: Props) => {
                                 <Popover.Target>
                                     <ActionIcon variant="transparent" color="yellow" size="sm"><IconBulb size={18} /></ActionIcon>
                                 </Popover.Target>
-                                <Popover.Dropdown bg="yellow.0"><Text size="sm">{contextText}</Text></Popover.Dropdown>
+                                <Popover.Dropdown style={{ backgroundColor: 'var(--mantine-color-yellow-light)' }}>
+                                  <Text size="sm" c="var(--mantine-color-yellow-filled-hover)">{contextText}</Text>
+                                </Popover.Dropdown>
                             </Popover>
                         )}
                     </Group>
@@ -250,16 +261,7 @@ export const ReviewTable = ({ cards, primaryDirection, onFinish }: Props) => {
                           disabled={isChecking}
                           size="md"
                           variant="filled"
-                          styles={{
-                            input: {
-                              backgroundColor: isChecking 
-                                  ? (isCorrect ? '#e6fffa' : '#fff5f5') : '#f8f9fa',
-                              color: isChecking 
-                                  ? (isCorrect ? '#2b8a3e' : '#c92a2a') : '#000',
-                              fontWeight: 500,
-                              border: isChecking ? `1px solid ${isCorrect ? '#20c997' : '#ff8787'}` : '1px solid transparent',
-                            }
-                          }}
+                          styles={getInputStyles(isCorrect)}
                         />
                         
                         {isChecking && !isCorrect && (
@@ -267,7 +269,7 @@ export const ReviewTable = ({ cards, primaryDirection, onFinish }: Props) => {
                               {String(card[currentStep.targetKey] || '')}
                            </Badge>
                         )}
-                        {isChecking && isCorrect && <IconCheck color="teal" size={20} />}
+                        {isChecking && isCorrect && <IconCheck color="var(--mantine-color-teal-filled)" size={20} />}
                       </Group>
                   </Table.Td>
                 </Table.Tr>

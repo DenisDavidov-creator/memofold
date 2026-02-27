@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
   Container, Title, Button, Group, TextInput, Paper, 
   Table, Text, LoadingOverlay, Stack, Badge, Box, SimpleGrid, 
-  ActionIcon, Modal, Switch, Checkbox, Transition, SegmentedControl, ThemeIcon, FileButton 
+  ActionIcon, Modal, Switch, Checkbox, Transition, SegmentedControl, ThemeIcon, FileButton,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { 
@@ -20,10 +20,12 @@ import { createCard, updateCard } from '../../features/decks/api';
 import { useDraft } from '../../app/providers/DraftProviders';
 import type { Card } from '../../features/decks/types';
 import { getCurrentUserId } from '../../shared/utils/auth';
+import { useReviewSession } from '../../app/providers/ReviewProvider';
 
 const WordSetDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { setSessionActive } = useReviewSession();
   
   // Data States
   const [set, setSet] = useState<WordSetDetails | null>(null);
@@ -39,9 +41,8 @@ const WordSetDetailsPage = () => {
   const [copyModalOpened, { open: openCopyModal, close: closeCopyModal }] = useDisclosure(false);
   const [importModalOpened, { open: openImportModal, close: closeImportModal }] = useDisclosure(false);
   
-  // New Modals for replacements
   const [deleteSetModalOpened, { open: openDeleteSetModal, close: closeDeleteSetModal }] = useDisclosure(false);
-  const [deleteCardId, setDeleteCardId] = useState<number | null>(null); // acts as open state for card delete modal
+  const [deleteCardId, setDeleteCardId] = useState<number | null>(null); 
   const [errorModalState, setErrorModalState] = useState<{ opened: boolean; title: string; message: string }>({
     opened: false, title: '', message: ''
   });
@@ -60,6 +61,10 @@ const WordSetDetailsPage = () => {
   // User Info
   const [currentUserLogin, setCurrentUserLogin] = useState('');
 
+  // Auth Check
+  const currentUserId = getCurrentUserId();
+  const isOwner = set && currentUserId && set.userId === currentUserId;
+
   // Forms
   const [form, setForm] = useState({
     originalWord: '',
@@ -68,7 +73,6 @@ const WordSetDetailsPage = () => {
     translationContext: ''
   });
   
-  // Edit State
   const [editingCard, setEditingCard] = useState<Card | null>(null);
   const [editForm, setEditForm] = useState({
     originalWord: '',
@@ -77,18 +81,16 @@ const WordSetDetailsPage = () => {
     translationContext: ''
   });
 
-  // Auth Check
-  const currentUserId = getCurrentUserId();
-  const isOwner = set && currentUserId && set.userId === currentUserId;
-
   // Helper: Show Error Modal
   const showError = (title: string, message: string) => {
     setErrorModalState({ opened: true, title, message });
   };
   const closeError = () => setErrorModalState(prev => ({ ...prev, opened: false }));
 
-  // 1. LOAD DATA
+  // 1. LOAD DATA & CONTEXT RESET
   useEffect(() => {
+    setSessionActive(false); // Сбрасываем активность тренировки
+
     const token = localStorage.getItem('accessToken');
     if (token) {
         try {
@@ -110,7 +112,7 @@ const WordSetDetailsPage = () => {
         showError('Ошибка загрузки', 'Не удалось загрузить набор слов.');
       })
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, setSessionActive]);
 
   // 2. FILTERING
   const filteredCards = (set?.cards || []).filter((card: any) => {
@@ -121,7 +123,6 @@ const WordSetDetailsPage = () => {
   });
 
   // --- HANDLERS ---
-
   const handleInputChange = (field: string, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }));
   };
@@ -135,7 +136,6 @@ const WordSetDetailsPage = () => {
   const toggleAll = () => {
     const visibleIds = filteredCards.map(c => c.id);
     const allSelected = visibleIds.every(id => selectedCards.includes(id));
-
     if (allSelected) {
         setSelectedCards(prev => prev.filter(id => !visibleIds.includes(id)));
     } else {
@@ -161,7 +161,6 @@ const WordSetDetailsPage = () => {
     }
   };
 
-  // --- IMPORT LOGIC ---
   const handleImport = async (file: File | null) => {
       if (!file) return;
       setIsImporting(true);
@@ -185,11 +184,7 @@ const WordSetDetailsPage = () => {
           } else {
               showError('Ошибка файла', 'Файл пуст или имеет неверный формат.');
           }
-      } catch (e) { 
-          showError('Ошибка', 'Не удалось прочитать файл.'); 
-      } finally { 
-          setIsImporting(false); 
-      }
+      } catch (e) { showError('Ошибка', 'Не удалось прочитать файл.'); } finally { setIsImporting(false); }
   };
 
   const confirmImport = async () => {
@@ -197,9 +192,7 @@ const WordSetDetailsPage = () => {
       try {
           await addCardsToSet({ wordSetId: Number(id), cards: importCandidates });
           window.location.reload();
-      } catch (e) {
-          showError('Ошибка', 'Не удалось сохранить импортированные слова.');
-      } finally {
+      } catch (e) { showError('Ошибка', 'Не удалось сохранить импортированные слова.'); } finally {
           closeImportModal();
           setImportCandidates([]);
       }
@@ -214,17 +207,10 @@ const WordSetDetailsPage = () => {
       setSet(prev => prev ? { ...prev, cards: [...prev.cards, cardWithStatus] } : null);
       setForm({ originalWord: '', translation: '', originalContext: '', translationContext: '' });
       setTimeout(() => firstInputRef.current?.focus(), 100);
-    } catch (err) { 
-        showError('Ошибка', 'Не удалось добавить слово.'); 
-    } finally { 
-        setIsAdding(false); 
-    }
+    } catch (err) { showError('Ошибка', 'Не удалось добавить слово.'); } finally { setIsAdding(false); }
   };
 
-  // --- DELETE CARD LOGIC ---
-  const promptDeleteCard = (cardId: number) => {
-      setDeleteCardId(cardId);
-  };
+  const promptDeleteCard = (cardId: number) => setDeleteCardId(cardId);
 
   const confirmDeleteCard = async () => {
     if (!deleteCardId) return;
@@ -232,41 +218,21 @@ const WordSetDetailsPage = () => {
         await deleteCard({ cardId: deleteCardId, wordSetId: Number(id) });
         setSet(prev => prev ? { ...prev, cards: prev.cards.filter(c => c.id !== deleteCardId) } : null);
         setSelectedCards(prev => prev.filter(id => id !== deleteCardId));
-    } catch (e) { 
-        showError('Ошибка', 'Не удалось удалить слово.'); 
-    } finally {
-        setDeleteCardId(null);
-    }
+    } catch (e) { showError('Ошибка', 'Не удалось удалить слово.'); } finally { setDeleteCardId(null); }
   };
 
-  // --- EDIT LOGIC ---
   const handleOpenEdit = (card: Card) => {
       setEditingCard(card);
-      setEditForm({
-          originalWord: card.originalWord,
-          translation: card.translation,
-          originalContext: card.originalContext || '',
-          translationContext: card.translationContext || ''
-      });
+      setEditForm({ originalWord: card.originalWord, translation: card.translation, originalContext: card.originalContext || '', translationContext: card.translationContext || '' });
   };
 
   const handleSaveEdit = async () => {
       if (!editingCard) return;
       try {
           const updated = await updateCard({ id: editingCard.id, ...editForm });
-          setSet(prev => prev ? {
-              ...prev,
-              cards: prev.cards.map(c => c.id === updated.id ? { ...updated, isLearning: (c as any).isLearning } : c)
-          } : null);
+          setSet(prev => prev ? { ...prev, cards: prev.cards.map(c => c.id === updated.id ? { ...updated, isLearning: (c as any).isLearning } : c) } : null);
           setEditingCard(null);
-      } catch (e) { 
-          showError('Ошибка', 'Не удалось сохранить изменения.'); 
-      }
-  };
-
-  // --- COPY LOGIC ---
-  const handleCopySetClick = () => {
-      openCopyModal();
+      } catch (e) { showError('Ошибка', 'Не удалось сохранить изменения.'); }
   };
 
   const confirmCopySet = async () => {
@@ -274,26 +240,16 @@ const WordSetDetailsPage = () => {
           const newSet = await copyWordSet(Number(id));
           closeCopyModal();
           navigate(`/word-sets/${newSet.id}`);
-      } catch (e) { 
-          showError('Ошибка', 'Не удалось скопировать набор.'); 
-      }
+      } catch (e) { showError('Ошибка', 'Не удалось скопировать набор.'); }
   };
 
-  // --- SETTINGS / UPDATE SET LOGIC ---
   const handleUpdateSet = async () => {
     if (!id) return;
     try {
         const updated = await updateWordSet(Number(id), { name: setName, isPublic });
         setSet(prev => prev ? { ...prev, name: updated.name, isPublic: updated.isPublic } : null);
         closeSettings();
-    } catch (e) { 
-        showError('Ошибка', 'Не удалось обновить настройки набора.'); 
-    }
-  };
-
-  // --- DELETE SET LOGIC ---
-  const promptDeleteSet = () => {
-      openDeleteSetModal();
+    } catch (e) { showError('Ошибка', 'Не удалось обновить настройки набора.'); }
   };
 
   const confirmDeleteSet = async () => {
@@ -301,11 +257,7 @@ const WordSetDetailsPage = () => {
     try {
         await deleteWordSet(Number(id));
         navigate('/word-sets');
-    } catch (e) { 
-        showError('Ошибка', 'Не удалось удалить набор.'); 
-    } finally {
-        closeDeleteSetModal();
-    }
+    } catch (e) { showError('Ошибка', 'Не удалось удалить набор.'); } finally { closeDeleteSetModal(); }
   };
 
   if (loading) return <LoadingOverlay visible={true} />;
@@ -333,11 +285,7 @@ const WordSetDetailsPage = () => {
             <Group gap="xs" mt={5}>
                 <Badge variant="light" color="blue" size="lg">{set.cards.length} слов</Badge>
                 {set.isPublic ? <Badge color="green" variant="outline">Публичный</Badge> : <Badge color="gray" variant="outline">Приватный</Badge>}
-                {authorName && (
-                    <Badge color="gray" variant="outline" style={{ textTransform: 'none' }}>
-                       Автор: {authorName}
-                    </Badge>
-                )}
+                {authorName && <Badge color="gray" variant="outline" style={{ textTransform: 'none' }}>Автор: {authorName}</Badge>}
             </Group>
          </div>
          
@@ -351,9 +299,7 @@ const WordSetDetailsPage = () => {
              </Transition>
 
              {!isOwner && (
-                 <Button variant="light" leftSection={<IconDownload size={18}/>} onClick={handleCopySetClick}>
-                     Копировать
-                 </Button>
+                 <Button variant="light" leftSection={<IconDownload size={18}/>} onClick={openCopyModal}>Копировать</Button>
              )}
              {isOwner && <Button variant="default" onClick={openSettings} leftSection={<IconSettings size={18}/>}>Настройки</Button>}
          </Group>
@@ -401,7 +347,7 @@ const WordSetDetailsPage = () => {
       {/* TABLE */}
       <Paper shadow="xs" radius="md" withBorder style={{ overflow: 'hidden' }}>
         <Table verticalSpacing="sm" highlightOnHover striped>
-          <Table.Thead bg="gray.1">
+          <Table.Thead style={{ backgroundColor: 'var(--mantine-color-default-hover)' }}>
             <Table.Tr>
               <Table.Th w={40}><Checkbox onChange={toggleAll} checked={filteredCards.length > 0 && filteredCards.every(c => selectedCards.includes(c.id))} indeterminate={selectedCards.length > 0 && !filteredCards.every(c => selectedCards.includes(c.id))} /></Table.Th>
               <Table.Th>Слово</Table.Th>
@@ -423,30 +369,32 @@ const WordSetDetailsPage = () => {
                 const isLearning = Boolean(card.isLearning);
 
                 return (
-                    <Table.Tr key={card.id} bg={alreadyInDraft ? 'blue.0' : (isLearning ? 'green.0' : undefined)}>
+                    <Table.Tr 
+                      key={card.id} 
+                      style={{ 
+                        backgroundColor: alreadyInDraft 
+                          ? 'var(--mantine-color-blue-light)' 
+                          : (isLearning ? 'var(--mantine-color-teal-light)' : undefined) 
+                      }}
+                    >
                         <Table.Td><Checkbox checked={selectedCards.includes(card.id)} onChange={() => toggleRow(card.id)} /></Table.Td>
                         <Table.Td>
                             <Text fw={600}>{card.originalWord}</Text>
                             {card.originalContext && <Text size="xs" c="dimmed">{card.originalContext}</Text>}
                             <Group gap={5} mt={2}>
                                 {alreadyInDraft && <Badge size="xs" variant="filled">В корзине</Badge>}
-                                {isLearning && <Badge size="xs" color="green" variant="light">Учу</Badge>}
+                                {isLearning && <Badge size="xs" color="teal" variant="light">Учу</Badge>}
                             </Group>
                         </Table.Td>
                         <Table.Td>
                             <Text>{card.translation}</Text>
                             {card.translationContext && <Text size="xs" c="dimmed">{card.translationContext}</Text>}
                         </Table.Td>
-                        
                         {isOwner && (
                             <Table.Td>
-                                <Group gap={5}>
-                                    <ActionIcon variant="subtle" color="blue" onClick={() => handleOpenEdit(card)}>
-                                        <IconPencil size={18} />
-                                    </ActionIcon>
-                                    <ActionIcon color="red" variant="subtle" onClick={() => promptDeleteCard(card.id)}>
-                                        <IconTrash size={18} />
-                                    </ActionIcon>
+                                <Group gap={5} wrap="nowrap">
+                                    <ActionIcon variant="subtle" color="blue" onClick={() => handleOpenEdit(card)}><IconPencil size={18} /></ActionIcon>
+                                    <ActionIcon color="red" variant="subtle" onClick={() => promptDeleteCard(card.id)}><IconTrash size={18} /></ActionIcon>
                                 </Group>
                             </Table.Td>
                         )}
@@ -459,8 +407,6 @@ const WordSetDetailsPage = () => {
       </Paper>
 
       {/* --- MODALS --- */}
-
-      {/* 1. EDIT MODAL */}
       <Modal opened={!!editingCard} onClose={() => setEditingCard(null)} title="Редактировать слово" centered>
         <Stack gap="md">
             <TextInput label="Слово" value={editForm.originalWord} onChange={(e) => setEditForm({...editForm, originalWord: e.target.value})} />
@@ -474,12 +420,10 @@ const WordSetDetailsPage = () => {
         </Stack>
       </Modal>
 
-      {/* 2. SETTINGS MODAL */}
       {isOwner && (
           <Modal opened={settingsOpened} onClose={closeSettings} title="Настройки">
               <TextInput label="Название" value={setName} onChange={(e) => setSetName(e.currentTarget.value)} mb="md"/>
-              
-              <Paper withBorder p="md" radius="md" mb="xl" bg={isSystemSet || isEmpty ? "gray.0" : undefined}>
+              <Paper withBorder p="md" radius="md" mb="xl" style={{ backgroundColor: (isSystemSet || isEmpty) ? 'var(--mantine-color-default-hover)' : 'transparent' }}>
                  <Group justify="space-between">
                     <div>
                         <Text fw={500}>Публичный доступ</Text>
@@ -490,38 +434,25 @@ const WordSetDetailsPage = () => {
                     <Switch checked={isPublic} onChange={(e) => setIsPublic(e.currentTarget.checked)} disabled={isSystemSet || (isEmpty && !isPublic)} />
                  </Group>
               </Paper>
-
               <Group justify="space-between">
-                  {!isSystemSet ? (
-                      <Button color="red" variant="subtle" leftSection={<IconTrash size={16}/>} onClick={promptDeleteSet}>Удалить</Button>
-                  ) : <div />}
+                  {!isSystemSet ? <Button color="red" variant="subtle" leftSection={<IconTrash size={16}/>} onClick={openDeleteSetModal}>Удалить</Button> : <div />}
                   <Button onClick={handleUpdateSet}>Сохранить</Button>
               </Group>
           </Modal>
       )}
 
-      {/* 3. COPY MODAL */}
       <Modal opened={copyModalOpened} onClose={closeCopyModal} title="Копирование набора" centered>
-          <Text size="sm" mb="lg">
-              Этот набор будет скопирован в вашу личную библиотеку. Вы сможете редактировать слова и добавлять новые.
-          </Text>
+          <Text size="sm" mb="lg">Набор будет скопирован в вашу личную библиотеку. Вы сможете редактировать слова и добавлять новые.</Text>
           <Group justify="flex-end">
               <Button variant="default" onClick={closeCopyModal}>Отмена</Button>
               <Button onClick={confirmCopySet}>Копировать себе</Button>
           </Group>
       </Modal>
 
-      {/* 4. IMPORT MODAL */}
       <Modal opened={importModalOpened} onClose={closeImportModal} title="Импорт слов" centered>
           <Stack align="center" my="sm">
-             <ThemeIcon size={50} radius="xl" color="green" variant="light">
-                 <IconFiles size={30} />
-             </ThemeIcon>
-             <Text ta="center">
-                 В файле найдено <b>{importCandidates.length}</b> слов. 
-                 <br/>
-                 Добавить их в текущий набор?
-             </Text>
+             <ThemeIcon size={50} radius="xl" color="green" variant="light"><IconFiles size={30} /></ThemeIcon>
+             <Text ta="center">В файле найдено <b>{importCandidates.length}</b> слов. Добавить их в текущий набор?</Text>
           </Stack>
           <Group justify="flex-end" mt="md">
               <Button variant="default" onClick={closeImportModal}>Отмена</Button>
@@ -529,41 +460,29 @@ const WordSetDetailsPage = () => {
           </Group>
       </Modal>
 
-      {/* 5. ERROR MODAL (Generic) */}
       <Modal opened={errorModalState.opened} onClose={closeError} title={errorModalState.title} centered>
            <Group wrap="nowrap" align="flex-start" mb="md">
-               <ThemeIcon color="red" variant="light" size="lg" radius="md">
-                   <IconAlertCircle size={22} />
-               </ThemeIcon>
+               <ThemeIcon color="red" variant="light" size="lg" radius="md"><IconAlertCircle size={22} /></ThemeIcon>
                <Text size="sm">{errorModalState.message}</Text>
            </Group>
-           <Group justify="flex-end">
-               <Button onClick={closeError}>Понятно</Button>
-           </Group>
+           <Group justify="flex-end"><Button onClick={closeError}>Понятно</Button></Group>
       </Modal>
 
-      {/* 6. DELETE CARD CONFIRMATION MODAL */}
       <Modal opened={!!deleteCardId} onClose={() => setDeleteCardId(null)} title="Удаление слова" centered>
-          <Text size="sm" mb="lg">
-              Вы уверены, что хотите удалить это слово? Это действие нельзя отменить.
-          </Text>
+          <Text size="sm" mb="lg">Вы уверены, что хотите удалить это слово? Это действие нельзя отменить.</Text>
           <Group justify="flex-end">
               <Button variant="default" onClick={() => setDeleteCardId(null)}>Отмена</Button>
               <Button color="red" onClick={confirmDeleteCard}>Удалить</Button>
           </Group>
       </Modal>
 
-      {/* 7. DELETE SET CONFIRMATION MODAL */}
       <Modal opened={deleteSetModalOpened} onClose={closeDeleteSetModal} title="Удаление набора" centered>
-          <Text size="sm" mb="lg">
-              Вы уверены, что хотите удалить весь набор слов? Все карточки будут удалены безвозвратно.
-          </Text>
+          <Text size="sm" mb="lg">Вы уверены, что хотите удалить весь набор слов? Все карточки будут удалены безвозвратно.</Text>
           <Group justify="flex-end">
               <Button variant="default" onClick={closeDeleteSetModal}>Отмена</Button>
               <Button color="red" onClick={confirmDeleteSet}>Удалить набор</Button>
           </Group>
       </Modal>
-
     </Container>
   );
 };
