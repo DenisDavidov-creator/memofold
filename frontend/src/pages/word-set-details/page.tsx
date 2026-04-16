@@ -1,15 +1,16 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { 
-  Container, Title, Button, Group, TextInput, Paper, 
-  Table, Text, LoadingOverlay, Stack, Badge, Box, SimpleGrid, 
+import {
+  Container, Title, Button, Group, TextInput, Paper,
+  Table, Text, LoadingOverlay, Stack, Badge, Box, SimpleGrid,
   ActionIcon, Modal, Switch, Checkbox, Transition, SegmentedControl, ThemeIcon, FileButton,
+  NumberInput,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { 
-  IconVocabulary, IconLanguage, IconBook, IconPlus, IconArrowLeft, 
-  IconSettings, IconTrash, IconBasket, IconDownload, 
-  IconFiles, IconUpload, IconPencil, IconAlertCircle
+import {
+  IconVocabulary, IconLanguage, IconBook, IconPlus, IconArrowLeft,
+  IconSettings, IconTrash, IconBasket, IconDownload,
+  IconFiles, IconUpload, IconPencil, IconAlertCircle, IconSparkles,
 } from '@tabler/icons-react';
 import * as XLSX from 'xlsx';
 import { jwtDecode } from 'jwt-decode';
@@ -47,8 +48,12 @@ const WordSetDetailsPage = () => {
     opened: false, title: '', message: ''
   });
 
-  const [importCandidates, setImportCandidates] = useState<any[]>([]); 
+  const [importCandidates, setImportCandidates] = useState<any[]>([]);
   const [filterMode, setFilterMode] = useState<string>('all');
+
+  // Random N words modal
+  const [randomModalOpened, { open: openRandomModal, close: closeRandomModal }] = useDisclosure(false);
+  const [randomCount, setRandomCount] = useState<number | string>(10);
   
   // Settings Local State
   const [isPublic, setIsPublic] = useState(false);
@@ -159,6 +164,31 @@ const WordSetDetailsPage = () => {
       addToDraft(cardsToAdd);
       setSelectedCards([]); 
     }
+  };
+
+  const handleAddRandomToDraft = () => {
+    const n = Number(randomCount);
+    if (!n || n <= 0 || !set) return;
+
+    // Only cards not currently being studied
+    const newCards = set.cards.filter((c: any) => !c.isLearning && !isInDraft(c.originalWord));
+
+    // Shuffle and pick N
+    const shuffled = [...newCards].sort(() => Math.random() - 0.5);
+    const picked = shuffled.slice(0, Math.min(n, shuffled.length));
+
+    if (picked.length === 0) return;
+
+    addToDraft(picked.map(c => ({
+      id: isOwner ? c.id : undefined,
+      originalWord: c.originalWord,
+      translation: c.translation,
+      originalContext: c.originalContext,
+      translationContext: c.translationContext,
+      sourceSetId: Number(id),
+    })));
+
+    closeRandomModal();
   };
 
   const handleImport = async (file: File | null) => {
@@ -297,6 +327,15 @@ const WordSetDetailsPage = () => {
                     </Button>
                 )}
              </Transition>
+
+             <Button
+               variant="light"
+               color="cyan"
+               leftSection={<IconSparkles size={16}/>}
+               onClick={openRandomModal}
+             >
+               Случайные слова
+             </Button>
 
              {!isOwner && (
                  <Button variant="light" leftSection={<IconDownload size={18}/>} onClick={openCopyModal}>Копировать</Button>
@@ -474,6 +513,35 @@ const WordSetDetailsPage = () => {
               <Button variant="default" onClick={() => setDeleteCardId(null)}>Отмена</Button>
               <Button color="red" onClick={confirmDeleteCard}>Удалить</Button>
           </Group>
+      </Modal>
+
+      {/* RANDOM WORDS MODAL */}
+      <Modal opened={randomModalOpened} onClose={closeRandomModal} title="Случайные новые слова" centered>
+        <Stack>
+          <Text size="sm" c="dimmed">
+            Выберите количество случайных слов, которые ещё не изучаются. Они будут добавлены в корзину для создания колоды.
+          </Text>
+          <NumberInput
+            label="Количество слов"
+            placeholder="10"
+            min={1}
+            max={set?.cards.filter((c: any) => !c.isLearning).length || 100}
+            value={randomCount}
+            onChange={setRandomCount}
+            description={`Новых слов доступно: ${set?.cards.filter((c: any) => !c.isLearning && !isInDraft(c.originalWord)).length ?? 0}`}
+          />
+          <Group justify="flex-end" mt="sm">
+            <Button variant="default" onClick={closeRandomModal}>Отмена</Button>
+            <Button
+              color="cyan"
+              leftSection={<IconSparkles size={16}/>}
+              onClick={handleAddRandomToDraft}
+              disabled={!set?.cards.some((c: any) => !c.isLearning)}
+            >
+              Добавить в корзину
+            </Button>
+          </Group>
+        </Stack>
       </Modal>
 
       <Modal opened={deleteSetModalOpened} onClose={closeDeleteSetModal} title="Удаление набора" centered>

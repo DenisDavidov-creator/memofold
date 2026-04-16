@@ -1,175 +1,224 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Container, Title, Button, Group, TextInput, Modal, 
-  SimpleGrid, Card, Text, Badge, LoadingOverlay, Tabs, ThemeIcon, CloseButton 
+import {
+    Box,
+    Button,
+    Card,
+    CloseButton,
+    Container,
+    Group,
+    Modal,
+    SimpleGrid,
+    Skeleton,
+    Stack,
+    Tabs,
+    Text,
+    TextInput,
+    ThemeIcon,
+    Title,
+    Badge,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconFolder, IconPlus, IconWorld, IconUser, IconSearch } from '@tabler/icons-react';
+import { IconFolder, IconPlus, IconSearch, IconUser, IconWorld } from '@tabler/icons-react';
+import { motion } from 'framer-motion';
 import type { WordSet } from '../../features/word-sets/types';
 import { createWordSet, getWordSets } from '../../features/word-sets/api';
 
 const WordSetsPage = () => {
-  const navigate = useNavigate();
-  
-  const [sets, setSets] = useState<WordSet[]>([]);
-  const [activeTab, setActiveTab] = useState<string | null>('my'); 
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState(''); // State for search query
-  
-  const [opened, { open, close }] = useDisclosure(false);
-  const [newName, setNewName] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
+    const navigate = useNavigate();
 
-  useEffect(() => {
-    setLoading(true);
-    getWordSets(activeTab as 'my' | 'public')
-      .then((data) => {
-        const list = data || [];
-        
-        // СОРТИРОВКА: Системные (isDefault) поднимаем вверх
-        list.sort((a: any, b: any) => {
-            if (a.isDefault && !b.isDefault) return -1;
-            if (!a.isDefault && b.isDefault) return 1;
-            return 0;
-        });
-        
-        setSets(list);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [activeTab]);
+    const [sets, setSets] = useState<WordSet[]>([]);
+    const [activeTab, setActiveTab] = useState<string | null>('my');
+    const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState('');
 
-  const handleCreate = async () => {
-    if (!newName) return;
-    setIsCreating(true);
-    try {
-      const newSet = await createWordSet({ name: newName, isPublic: false });
-      setSets((prev) => [...prev, newSet]); 
-      setNewName('');
-      close();
-    } catch (e) {
-      alert('Ошибка создания');
-    } finally {
-      setIsCreating(false);
-    }
-  };
+    const [opened, { open, close }] = useDisclosure(false);
+    const [newName, setNewName] = useState('');
+    const [isCreating, setIsCreating] = useState(false);
 
-  const handleTabChange = (value: string | null) => {
-      setActiveTab(value);
-      setSearch(''); // Clear search when switching tabs
-  };
+    useEffect(() => {
+        setLoading(true);
+        getWordSets(activeTab as 'my' | 'public')
+            .then((data) => {
+                const list = data || [];
+                list.sort((a: any, b: any) => {
+                    if (a.isDefault && !b.isDefault) return -1;
+                    if (!a.isDefault && b.isDefault) return 1;
+                    return 0;
+                });
+                setSets(list);
+            })
+            .catch(console.error)
+            .finally(() => setLoading(false));
+    }, [activeTab]);
 
-  // FILTER LOGIC
-  const filteredSets = sets.filter((set: any) => {
-      if (!search) return true;
-      const query = search.toLowerCase();
-      
-      const matchName = set.name.toLowerCase().includes(query);
-      const matchUser = set.userName ? set.userName.toLowerCase().includes(query) : false;
-      
-      return matchName || matchUser;
-  });
+    const handleCreate = async () => {
+        if (!newName) return;
+        setIsCreating(true);
+        try {
+            const newSet = await createWordSet({ name: newName, isPublic: false });
+            setSets((prev) => [...prev, newSet]);
+            setNewName('');
+            close();
+        } catch (e) {
+            alert('Ошибка создания');
+        } finally {
+            setIsCreating(false);
+        }
+    };
 
-  if (loading) return <LoadingOverlay visible={true} />;
+    const handleTabChange = (value: string | null) => {
+        setActiveTab(value);
+        setSearch('');
+    };
 
-  return (
-    <Container size="lg" py="xl">
-      <Group justify="space-between" mb="lg">
-        <Title order={2}>Библиотека</Title>
-        {activeTab === 'my' && (
-            <Button leftSection={<IconPlus size={18}/>} onClick={open}>Создать набор</Button>
-        )}
-      </Group>
+    const filteredSets = sets.filter((set: any) => {
+        if (!search) return true;
+        const query = search.toLowerCase();
+        return (
+            set.name.toLowerCase().includes(query) ||
+            (set.userName ? set.userName.toLowerCase().includes(query) : false)
+        );
+    });
 
-      <Tabs value={activeTab} onChange={handleTabChange} mb="md">
-        <Tabs.List>
-          <Tabs.Tab value="my" leftSection={<IconFolder size={16}/>}>Мои наборы</Tabs.Tab>
-          <Tabs.Tab value="public" leftSection={<IconWorld size={16}/>}>Публичные</Tabs.Tab>
-        </Tabs.List>
-      </Tabs>
+    const SkeletonCard = () => (
+        <Card shadow="sm" padding="lg" radius="xl" withBorder>
+            <Skeleton height={40} width={40} radius="md" mb="md" />
+            <Skeleton height={18} mb="xs" radius="md" />
+            <Skeleton height={14} width="50%" radius="md" />
+        </Card>
+    );
 
-      {/* SEARCH INPUT */}
-      <TextInput 
-        placeholder={activeTab === 'public' ? "Поиск по названию или автору..." : "Поиск по названию..."}
-        leftSection={<IconSearch size={16} />}
-        value={search}
-        onChange={(e) => setSearch(e.currentTarget.value)}
-        rightSection={search ? <CloseButton onClick={() => setSearch('')} /> : null}
-        mb="xl"
-      />
+    return (
+        <Container size="lg" py="xl">
+            <Group justify="space-between" mb="xl">
+                <Title order={2} fw={800}>Библиотека</Title>
+                {activeTab === 'my' && (
+                    <Button leftSection={<IconPlus size={18} />} onClick={open} radius="xl">
+                        Создать набор
+                    </Button>
+                )}
+            </Group>
 
-      {filteredSets.length === 0 ? (
-        <Text c="dimmed" ta="center" py="xl">
-            {search ? 'Ничего не найдено' : 'Список пуст'}
-        </Text>
-      ) : (
-        <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }}>
-          {filteredSets.map((set) => {
-             const isSystem = (set as any).isDefault;
-             const userName = (set as any).userName;
+            <Tabs value={activeTab} onChange={handleTabChange} mb="md">
+                <Tabs.List>
+                    <Tabs.Tab value="my" leftSection={<IconFolder size={15} />}>Мои наборы</Tabs.Tab>
+                    <Tabs.Tab value="public" leftSection={<IconWorld size={15} />}>Публичные</Tabs.Tab>
+                </Tabs.List>
+            </Tabs>
 
-             return (
-                <Card 
-                  key={set.id} 
-                  shadow="sm" 
-                  padding="lg" 
-                  radius="md" 
-                  withBorder
-                  style={{ cursor: 'pointer', transition: 'transform 0.2s' }}
-                  onClick={() => navigate(`/word-sets/${set.id}`)}
-                  onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; }}
-                >
-                  <Group justify="space-between" mb="xs">
-                     <ThemeIcon 
-                        color={activeTab === 'my' ? 'orange' : 'blue'} 
-                        variant="light" size="lg" radius="md"
-                     >
-                        {activeTab === 'my' ? <IconFolder size={20} /> : <IconWorld size={20} />}
-                     </ThemeIcon>
-                  </Group>
-    
-                  <Text fw={600} size="lg" mt="sm" truncate>{set.name}</Text>
-                  
-                  <Group mt="md" gap="xs">
-                     <Badge variant="dot" color="gray">{set.cardsCount || 0} слов</Badge>
-                     
-                     {isSystem && <Badge color="orange" variant="light" size="xs">System</Badge>}
-                     
-                     {/* Show User Name in Public Tab */}
-                     {activeTab === 'public' && userName && (
-                        <Badge 
-                            variant="light" 
-                            color="gray" 
-                            pl={0}
-                            leftSection={<ThemeIcon variant="transparent" size="xs" color="gray"><IconUser size={12} /></ThemeIcon>}
-                        >
-                            {userName}
-                        </Badge>
-                     )}
-                  </Group>
-                </Card>
-             );
-          })}
-        </SimpleGrid>
-      )}
+            <TextInput
+                placeholder={activeTab === 'public' ? 'Поиск по названию или автору...' : 'Поиск по названию...'}
+                leftSection={<IconSearch size={16} />}
+                value={search}
+                onChange={(e) => setSearch(e.currentTarget.value)}
+                rightSection={search ? <CloseButton onClick={() => setSearch('')} /> : null}
+                mb="xl"
+                radius="xl"
+            />
 
-      <Modal opened={opened} onClose={close} title="Новый набор слов">
-        <TextInput 
-          label="Название" 
-          placeholder="Например: Топ 100 глаголов" 
-          data-autofocus 
-          value={newName}
-          onChange={(e) => setNewName(e.currentTarget.value)}
-        />
-        <Group justify="flex-end" mt="md">
-            <Button variant="default" onClick={close}>Отмена</Button>
-            <Button onClick={handleCreate} loading={isCreating}>Создать</Button>
-        </Group>
-      </Modal>
-    </Container>
-  );
+            {loading ? (
+                <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }}>
+                    {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
+                </SimpleGrid>
+            ) : filteredSets.length === 0 ? (
+                <Box py={80} style={{ textAlign: 'center' }}>
+                    <ThemeIcon size={64} radius="xl" variant="light" color="gray" mx="auto" mb="lg">
+                        <IconFolder size={32} />
+                    </ThemeIcon>
+                    <Text size="lg" fw={600} mb="xs">
+                        {search ? 'Ничего не найдено' : 'Список пуст'}
+                    </Text>
+                    <Text c="dimmed" size="sm" mb="xl">
+                        {search
+                            ? 'Попробуйте другой запрос'
+                            : activeTab === 'my'
+                            ? 'Создайте свой первый набор слов'
+                            : 'Публичных наборов пока нет'
+                        }
+                    </Text>
+                    {!search && activeTab === 'my' && (
+                        <Button radius="xl" leftSection={<IconPlus size={16} />} onClick={open}>
+                            Создать набор
+                        </Button>
+                    )}
+                </Box>
+            ) : (
+                <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }}>
+                    {filteredSets.map((set, i) => {
+                        const isSystem = (set as any).isDefault;
+                        const userName = (set as any).userName;
+
+                        return (
+                            <motion.div
+                                key={set.id}
+                                initial={{ opacity: 0, y: 12 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                whileHover={{ y: -3, transition: { duration: 0.15 } }}
+                                transition={{ delay: i * 0.04, duration: 0.2 }}
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => navigate(`/word-sets/${set.id}`)}
+                            >
+                                <Card shadow="sm" padding="lg" radius="xl" withBorder h="100%">
+                                    <Stack gap="sm">
+                                        <ThemeIcon
+                                            color={activeTab === 'my' ? 'orange' : 'blue'}
+                                            variant="light"
+                                            size={44}
+                                            radius="xl"
+                                        >
+                                            {activeTab === 'my' ? <IconFolder size={22} /> : <IconWorld size={22} />}
+                                        </ThemeIcon>
+
+                                        <Text fw={700} size="md" lineClamp={2}>{set.name}</Text>
+
+                                        <Group gap="xs">
+                                            <Badge variant="light" color="gray" size="sm">
+                                                {set.cardsCount || 0} слов
+                                            </Badge>
+
+                                            {isSystem && (
+                                                <Badge color="orange" variant="light" size="sm">
+                                                    System
+                                                </Badge>
+                                            )}
+
+                                            {activeTab === 'public' && userName && (
+                                                <Badge
+                                                    variant="light"
+                                                    color="gray"
+                                                    size="sm"
+                                                    leftSection={<IconUser size={10} />}
+                                                >
+                                                    {userName}
+                                                </Badge>
+                                            )}
+                                        </Group>
+                                    </Stack>
+                                </Card>
+                            </motion.div>
+                        );
+                    })}
+                </SimpleGrid>
+            )}
+
+            <Modal opened={opened} onClose={close} title="Новый набор слов" centered radius="xl">
+                <TextInput
+                    label="Название"
+                    placeholder="Например: Топ 100 глаголов"
+                    data-autofocus
+                    value={newName}
+                    onChange={(e) => setNewName(e.currentTarget.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); }}
+                    radius="xl"
+                />
+                <Group justify="flex-end" mt="lg">
+                    <Button variant="default" onClick={close} radius="xl">Отмена</Button>
+                    <Button onClick={handleCreate} loading={isCreating} radius="xl">Создать</Button>
+                </Group>
+            </Modal>
+        </Container>
+    );
 };
 
 export default WordSetsPage;

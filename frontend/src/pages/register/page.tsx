@@ -1,29 +1,40 @@
-import { Anchor, Button, Container, Group, Modal, Paper, PasswordInput, Text, TextInput, Title } from '@mantine/core';
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { register } from "../../features/auth/api";
+import {
+    Anchor,
+    Box,
+    Button,
+    Container,
+    Divider,
+    Modal,
+    Paper,
+    PasswordInput,
+    Text,
+    TextInput,
+    Title,
+    ThemeIcon,
+    Stack,
+} from '@mantine/core';
 import { IconCheck } from '@tabler/icons-react';
+import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { register } from '../../features/auth/api';
 
 const RegisterPage = () => {
-
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
-    
-    // Form State
+
     const [email, setEmail] = useState('');
-    const [login, setLogin] = useState('');
+    const [loginVal, setLoginVal] = useState('');
     const [password, setPassword] = useState('');
-    const [repeatPassword, setRepeatPassword] = useState(''); // 1. New field state
-    
-    // UI State
+    const [repeatPassword, setRepeatPassword] = useState('');
+
     const [error, setError] = useState('');
-    const [successModalOpened, setSuccessModalOpened] = useState(false); // 2. Modal state
+    const [successModalOpened, setSuccessModalOpened] = useState(false);
 
     const handleRegister = async () => {
         setError('');
 
-        // 3. Validation
-        if (!email || !login || !password || !repeatPassword) {
+        if (!email || !loginVal || !password || !repeatPassword) {
             setError('Пожалуйста, заполните все поля');
             return;
         }
@@ -33,23 +44,21 @@ const RegisterPage = () => {
             return;
         }
 
-
         setLoading(true);
         try {
-            const data = await register({email, login, password});
+            const data = await register({ email, login: loginVal, password });
 
             if (data.accessToken) {
-                // If the backend logs the user in immediately
                 localStorage.setItem('accessToken', data.accessToken);
-                navigate('/'); 
+                navigate('/');
             } else {
-                // 4. Show Success Modal instead of alert
                 setSuccessModalOpened(true);
             }
         } catch (err: any) {
-            console.error(err);
-            // Handle specific backend errors if needed
-            setError(err.response?.data?.message || 'Ошибка при регистрации. Возможно, email или логин уже заняты.');
+            setError(
+                err.response?.data?.message ||
+                'Ошибка при регистрации. Возможно, email или логин уже заняты.'
+            );
         } finally {
             setLoading(false);
         }
@@ -61,95 +70,132 @@ const RegisterPage = () => {
     };
 
     return (
-    <Container size={420} my={60}>
-      <Title ta="center" order={2} style={{ fontFamily: 'Greycliff CF, sans-serif' }}>
-        Добро пожаловать!
-      </Title>
-      <Text c="dimmed" size="sm" ta="center" mt={5}>
-        Создайте аккаунт, чтобы начать обучение
-      </Text>
+        <Box
+            style={{
+                minHeight: '100vh',
+                display: 'flex',
+                alignItems: 'center',
+                backgroundColor: 'var(--mantine-color-body)',
+            }}
+        >
+            <Container size={420} w="100%">
+                <motion.div
+                    initial={{ opacity: 0, y: 24 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4 }}
+                >
+                    <Text
+                        ta="center"
+                        fw={800}
+                        fz={28}
+                        mb={4}
+                        style={{ letterSpacing: -0.5 }}
+                    >
+                        <Text span c="cyan" inherit>Memo</Text>fold
+                    </Text>
 
-      <Paper withBorder shadow="md" p={30} mt={30} radius="md">
-        <TextInput 
-          label="Email" 
-          placeholder="student@university.ru" 
-          required 
-          value={email}
-          onChange={(e) => setEmail(e.currentTarget.value)}
-          error={error && !email}
-        />
-        
-        <TextInput 
-          label="Логин (Имя пользователя)" 
-          placeholder="ivan_ivanov" 
-          required 
-          mt="md"
-          value={login}
-          onChange={(e) => setLogin(e.currentTarget.value)}
-          error={error && !login}
-        />
-        
-        <PasswordInput 
-          label="Пароль" 
-          placeholder="Придумайте надежный пароль" 
-          required 
-          mt="md" 
-          value={password}
-          onChange={(e) => setPassword(e.currentTarget.value)}
-          error={error && !password}
-        />
+                    <Title ta="center" order={2} fw={700} mb={6}>
+                        Добро пожаловать
+                    </Title>
+                    <Text c="dimmed" size="sm" ta="center" mb="xl">
+                        Создайте аккаунт, чтобы начать обучение
+                    </Text>
 
-        {/* 5. Repeat Password Input */}
-        <PasswordInput 
-          label="Повторите пароль" 
-          placeholder="Введите пароль еще раз" 
-          required 
-          mt="md" 
-          value={repeatPassword}
-          onChange={(e) => setRepeatPassword(e.currentTarget.value)}
-          error={error === 'Пароли не совпадают'}
-        />
-        
-        {/* Error Message */}
-        {error && (
-            <Text c="red" size="sm" ta="center" mt="md">
-                {error}
-            </Text>
-        )}
-        
-        <Button fullWidth mt="xl" onClick={handleRegister} loading={loading}>
-          Зарегистрироваться
-        </Button>
-      </Paper>
+                    <Paper withBorder shadow="sm" p="xl" radius="xl">
+                        <TextInput
+                            label="Email"
+                            placeholder="student@university.ru"
+                            required
+                            value={email}
+                            onChange={(e) => setEmail(e.currentTarget.value)}
+                            size="md"
+                        />
 
-      <Text ta="center" mt="md">
-        Уже есть аккаунт?{' '}
-        <Anchor component="button" type="button" onClick={() => navigate('/login')}>
-          Войти
-        </Anchor>
-      </Text>
+                        <TextInput
+                            label="Логин"
+                            placeholder="ivan_ivanov"
+                            required
+                            mt="md"
+                            value={loginVal}
+                            onChange={(e) => setLoginVal(e.currentTarget.value)}
+                            size="md"
+                        />
 
-      {/* 6. Success Modal */}
-      <Modal 
-        opened={successModalOpened} 
-        onClose={handleCloseSuccess} 
-        title="Регистрация успешна" 
-        centered
-        withCloseButton={false}
-      >
-          <Group justify="center" mb="md">
-              <IconCheck size={40} color="green" />
-          </Group>
-          <Text ta="center" mb="lg">
-              Аккаунт успешно создан! Теперь вы можете войти, используя свои учетные данные.
-          </Text>
-          <Button fullWidth onClick={handleCloseSuccess}>
-              Перейти к входу
-          </Button>
-      </Modal>
+                        <PasswordInput
+                            label="Пароль"
+                            placeholder="Придумайте надежный пароль"
+                            required
+                            mt="md"
+                            value={password}
+                            onChange={(e) => setPassword(e.currentTarget.value)}
+                            size="md"
+                        />
 
-    </Container>
-  );
+                        <PasswordInput
+                            label="Повторите пароль"
+                            placeholder="Введите пароль ещё раз"
+                            required
+                            mt="md"
+                            value={repeatPassword}
+                            onChange={(e) => setRepeatPassword(e.currentTarget.value)}
+                            error={error === 'Пароли не совпадают' ? 'Пароли не совпадают' : undefined}
+                            size="md"
+                        />
+
+                        {error && error !== 'Пароли не совпадают' && (
+                            <Text c="red" size="sm" ta="center" mt="md">
+                                {error}
+                            </Text>
+                        )}
+
+                        <Button
+                            fullWidth
+                            mt="xl"
+                            size="md"
+                            radius="xl"
+                            onClick={handleRegister}
+                            loading={loading}
+                        >
+                            Зарегистрироваться
+                        </Button>
+
+                        <Divider my="lg" label="или" labelPosition="center" />
+
+                        <Text ta="center" size="sm">
+                            Уже есть аккаунт?{' '}
+                            <Anchor fw={600} component="button" onClick={() => navigate('/login')}>
+                                Войти
+                            </Anchor>
+                        </Text>
+                    </Paper>
+                </motion.div>
+            </Container>
+
+            <Modal
+                opened={successModalOpened}
+                onClose={handleCloseSuccess}
+                title="Регистрация успешна"
+                centered
+                withCloseButton={false}
+                radius="xl"
+            >
+                <Stack align="center" py="md">
+                    <ThemeIcon size={64} radius="xl" color="teal" variant="light">
+                        <IconCheck size={32} />
+                    </ThemeIcon>
+                    <Text ta="center" size="md" fw={500}>
+                        Аккаунт успешно создан!
+                    </Text>
+                    <Text ta="center" size="sm" c="dimmed">
+                        Теперь вы можете войти, используя свои учетные данные.
+                    </Text>
+                    <Button fullWidth radius="xl" mt="sm" onClick={handleCloseSuccess}>
+                        Перейти к входу
+                    </Button>
+                </Stack>
+            </Modal>
+        </Box>
+    );
 };
 
 export default RegisterPage;

@@ -12,7 +12,9 @@
   "dependencies": {
     "@mantine/core": "^8.3.10",
     "@mantine/hooks": "^8.3.10",
+    "@mantine/notifications": "^8.3.18",
     "@tabler/icons-react": "^3.35.0",
+    "framer-motion": "^12.38.0",
     "jwt-decode": "^4.0.0",
     "ky": "^1.14.1",
     "postcss": "^8.5.6",
