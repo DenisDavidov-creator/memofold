@@ -1,41 +1,43 @@
 # Memofold 🧠
 
-Веб-приложение для изучения английского языка методом интервальных повторений (SRS) с механикой "Гармошка".
+A web application for learning English vocabulary with spaced repetition (SRS) and an "accordion" review mechanic.
 
-[Project]() В настоящее время - хостинг сайта приостановлен
+> 🎓 This project was developed as my graduation thesis (diploma project).
 
-## ✨ Особенности
-*   **Active Recall:** Уникальный интерфейс скрытия колонок для глубокого запоминания.
-*   **Smart SRS:** Алгоритм автоматически рассчитывает время следующего повторения.
-*   **Deck Builder:** Гибкий конструктор уроков из готовых наборов и своих слов.
-*   **Analytics:** Визуализация прогресса и качества обучения.
+**Live demo:** hosting is currently suspended.
 
-## 🛠 Технический стек
+## ✨ Features
+*   **Active Recall:** A unique column-hiding interface for deeper memorization.
+*   **Smart SRS:** The algorithm automatically calculates when each word should be reviewed next.
+*   **Deck Builder:** A flexible lesson builder that combines ready-made word sets with your own words.
+*   **Analytics:** Visualization of learning progress and quality.
+
+## 🛠 Tech Stack
 
 **Backend:**
 *   **Go** (Golang)
 *   **Clean Architecture** (Handler -> Service -> Repository)
-*   **PostgreSQL** (GORM + Raw SQL для сложной аналитики)
-*   **JWT** (Access + Refresh Tokens с ротацией)
+*   **PostgreSQL** (GORM + raw SQL for complex analytics)
+*   **JWT** (access + refresh tokens with rotation)
 
-**Frontend(vibe-codding):**
+**Frontend (vibe-coded):**
 *   **React** + **TypeScript** + **Vite**
-*   **Mantine UI** (Адаптивный интерфейс)
-*   **Ky** 
-*   **Recharts** (Графики)
+*   **Mantine UI** (responsive interface)
+*   **Ky** (HTTP client)
+*   **Recharts** (charts)
 
-## 🏗 Архитектура
-Проект построен как монорепозиторий:
-*   `/backend` - REST API на Go. Реализована пакетная обработка данных, транзакционность (ACID) и фоновая очистка мусора (Garbage Collector).
-*   `/frontend` - SPA на React. Реализована сложная логика стейта для режима тренировки и конструктора колод.
+## 🏗 Architecture
+The project is organized as a monorepo:
+*   `/backend` - REST API in Go. Features batch data processing, ACID transactions, and a background cleanup job (garbage collector).
+*   `/frontend` - React SPA. Handles complex state logic for the training mode and the deck builder.
 
-## 🚀 Запуск локально
+## 🚀 Running Locally
 
-### Creating .env
+### Create a `.env` file
 ```
 nano .env
 ```
-### paste 
+### Paste the following
 ```
 # Database Internal Settings (Used by Postgres image)
 POSTGRES_USER=Nya
@@ -55,8 +57,7 @@ HTTP_SERVER=8080
 DB_URL=postgres://Nya:Nya_password@db:5432/Nya_memofold?sslmode=disable
 ```
 
-### docker
+### Start with Docker
 ```
 docker compose up -d --build
 ```
-

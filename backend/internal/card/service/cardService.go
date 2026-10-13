@@ -26,13 +26,12 @@ func (s *CardService) CreateCard(input models.Card, userId int) (*models.Card, e
 		return nil, errors.New("Original word wasn't be empty")
 	}
 
-	var cards []models.Card
-	cards = append(cards, input)
+	cards := []models.Card{input}
 	if err := s.cardRepo.CreateCard(cards, userId); err != nil {
 		return nil, err
 	}
 
-	return &input, nil
+	return &cards[0], nil
 }
 
 func (s *CardService) DeleteCard(deleteCard card.DeleteCardParam) error {
